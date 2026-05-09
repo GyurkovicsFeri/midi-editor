@@ -140,6 +140,23 @@ export function HelpDialog() {
             </table>
           </section>
 
+          {/* Named Presets & Scenes */}
+          <section>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Named Presets &amp; Scenes (QC)</h3>
+            <p className="text-gray-400 mb-3">
+              For Quad Cortex devices you can define friendly preset and scene names so the event editor shows dropdowns instead of raw numbers.
+            </p>
+            <ol className="space-y-2 list-decimal list-inside text-gray-400 mb-3">
+              <li>Open <strong className="text-gray-200">Song Settings</strong> and click the device row to enter edit mode.</li>
+              <li>In the <strong className="text-gray-200">PRESETS</strong> section, click <strong className="text-gray-200">+ Add Preset</strong> for each preset you use.</li>
+              <li>Set the preset name, program number (0–127), bank (0 or 1), and setlist index (0 = Factory, 1 = My Presets, 2–12 = User).</li>
+              <li>Click the arrow on a preset row to expand it and enter optional scene names for scenes A–H.</li>
+            </ol>
+            <p className="text-gray-400">
+              Once presets are defined, the event editor shows a <strong className="text-gray-200">Preset</strong> dropdown for Preset Change events and a <strong className="text-gray-200">Scene</strong> dropdown (A–H) for Scene Change events. Selecting a preset automatically fills in the bank, setlist, and program number and sets the event label to the preset name.
+            </p>
+          </section>
+
           {/* Timeline Controls */}
           <section>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Timeline Controls</h3>
@@ -152,6 +169,21 @@ export function HelpDialog() {
               <li><span className="text-gray-200">Place event:</span> Double-click an empty lane area, or right-click for a command picker.</li>
               <li><span className="text-gray-200">Edit event:</span> Double-click an event block to open the editor.</li>
               <li><span className="text-gray-200">Move event:</span> Drag an event block left or right.</li>
+            </ul>
+          </section>
+
+          {/* Event List View */}
+          <section>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Event List View</h3>
+            <p className="text-gray-400 mb-3">
+              Switch between the timeline and a table view using the <strong className="text-gray-200">Timeline / Event List</strong> toggle above the main area.
+            </p>
+            <ul className="space-y-1.5 text-gray-400">
+              <li><span className="text-gray-200">Columns:</span> Position (bar.beat), Device, Label, Command, and a Parameters summary.</li>
+              <li><span className="text-gray-200">Sort:</span> Click the Position, Device, or Label column header to sort. Click again to reverse.</li>
+              <li><span className="text-gray-200">Filter:</span> Use the Device dropdown in the toolbar row to show only events for one device.</li>
+              <li><span className="text-gray-200">Edit:</span> Click the pencil icon on any row to open the event editor.</li>
+              <li><span className="text-gray-200">Delete:</span> Click the trash icon to remove an event immediately.</li>
             </ul>
           </section>
 
