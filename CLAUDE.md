@@ -6,7 +6,7 @@ A cross-platform desktop MIDI editor for live band performance. The band uses Ne
 
 **Key workflow:** Edit here → export `.mid` → load onto MIDI player device → play live.
 
-**Users:** ~3 guitarists each with a QC, 1 bassist with an unknown device. All are musicians, not developers.
+**Users:** ~3 guitarists each with a QC, 1 bassist with a Darkglass Alpha Omega Photon. All are musicians, not developers.
 
 ---
 
@@ -53,8 +53,9 @@ midi-editor/
 │   │   ├── clock.ts           # positionToSeconds, secondsToPosition, snapPosition, positionToTotalTicks
 │   │   ├── device-protocol.ts # getBuiltInProfiles, getProfile, resolveEventToRawMidi
 │   │   └── profiles/
-│   │       ├── quad-cortex.ts # Built-in QC profile
-│   │       └── generic.ts     # Built-in Generic MIDI profile
+│   │       ├── quad-cortex.ts                  # Built-in QC profile
+│   │       ├── darkglass-alpha-omega-photon.ts # Built-in Darkglass profile
+│   │       └── generic.ts                      # Built-in Generic MIDI profile
 │   ├── lib/
 │   │   ├── midi-file-io.ts    # exportSongToMidi → dataUri, downloadMidiFile
 │   │   └── project-file-io.ts # serializeProject, downloadProjectFile, loadProjectFile (.midiproj)
@@ -116,6 +117,15 @@ DeviceCommand {
   parameters?: CommandParameter[]  // user-fillable values
 }
 
+RawMidiMessage {
+  type: 'cc' | 'pc'
+  controller?: number   // CC number
+  value?: number        // hardcoded CC value
+  valueParam?: string   // pull CC value from event.parameters[valueParam]…
+  valueOffset?: number  // …plus this offset (e.g. -1 to convert 1-indexed to 0-indexed)
+  program?: number      // hardcoded PC program number
+}
+
 MidiDevice { id, name, profileId, midiChannel: 1-16, color, presets: Preset[] }
 
 Song {
@@ -175,16 +185,17 @@ Uses Zustand + Immer `produceWithPatches`. Every mutation goes through the `muta
 [Toolbar 48px]
 [Ruler 56px] ← click/drag to seek (snapped to snapMode)
 [Lanes area flex-1 overflow-hidden]
-  ├── Grid+Playhead wrapper: absolute, left=144px, overflow-hidden (clips to content area)
-  │     ├── TimelineGrid SVG (absolute inset-0, translateX(-scrollX))
-  │     └── Playhead (absolute, left = beats*pixelsPerBeat - scrollX)
-  └── Normal flow:
-        ├── EventLane × N  (flex row: fixed w-36 header + flex-1 overflow-hidden content)
-        └── WaveformLane   (flex row: fixed w-36 header + flex-1 overflow-hidden content)
+  ├── Grid wrapper:     absolute, left=144px, overflow-hidden, no z-index
+  │     └── TimelineGrid SVG (absolute inset-0, translateX(-scrollX))
+  ├── Normal flow:
+  │     ├── EventLane × N  (flex row: fixed w-36 header + flex-1 overflow-hidden content)
+  │     └── WaveformLane   (flex row: fixed w-36 header + flex-1 overflow-hidden content)
+  └── Playhead wrapper: absolute, left=144px, overflow-hidden, z-30 (rendered last, always on top)
+        └── Playhead (absolute, left = beats*pixelsPerBeat - scrollX)
 [StatusBar 32px]
 ```
 
-**Critical layout rule:** The grid and playhead are wrapped in `absolute inset-y-0 overflow-hidden` with `left: 144px` (= `w-36`). This prevents grid lines from bleeding into the device-name header column. Both receive `scrollX` directly (not `scrollX - 144`).
+**Critical layout rule:** Grid and Playhead are in **separate** absolute wrappers, both with `left: 144px` (= `w-36`) to prevent bleeding into the device-name header column. The Playhead wrapper has `z-30` and is rendered after the lanes div so it paints above WaveformLane (which creates its own stacking context via `transform`). Both receive `scrollX` directly (not `scrollX - 144`).
 
 **Scroll cap:** `handleWheel` computes `maxScrollX = totalWidth + 144 - containerWidth` so the user can never scroll past the last bar.
 
@@ -222,6 +233,28 @@ For `qc-scene` with `parameters.scene = 3`: emits `CC#43 value 2`.
 For `qc-preset` with `bank=0, setlist=1, preset=5`: emits `CC#0=0`, `CC#32=1`, `PC 5`.
 
 Other QC CCs: `CC#44` Tap Tempo, `CC#45` Tuner, `CC#46` Gig View.
+
+---
+
+## Darkglass Alpha Omega Photon MIDI Protocol
+
+CC assignments are **user-configurable** in Darkglass Suite. The built-in profile uses the CC#20–29 range (undefined in General MIDI). The bassist must enter these in Darkglass Suite to match.
+
+| CC# | Control | Values |
+|-----|---------|--------|
+| 20 | Bypass/Engage | 0 = bypass, 127 = active |
+| 21 | Drive | 0–127 |
+| 22 | Blend | 0–127 |
+| 23 | Bass EQ | 0–127 (64 = flat) |
+| 24 | Mid EQ | 0–127 (64 = flat) |
+| 25 | Treble EQ | 0–127 (64 = flat) |
+| 26 | Master Level | 0–127 |
+| 27 | Compression | 0–127 |
+| 28 | Distortion Mode | 0 = Alpha, 127 = Omega |
+| 29 | Cab Sim | 0 = off, 127 = on |
+
+**Preset recall** — single PC message:
+- `PC 0–5` → Presets A–F (separate commands per preset in the profile, each with hardcoded `msg.program`)
 
 ---
 
@@ -335,7 +368,7 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 ## Known Issues / Not Yet Implemented
 
 - **Live MIDI output** — no node-midi integration yet. The `ipcMain` file dialog handlers exist but live MIDI output is Phase 7 (future).
-- **Custom device profile editor** — users can't yet create profiles in-app; only QC and Generic built-ins exist.
+- **Custom device profile editor** — users can't yet create profiles in-app; built-ins are QC, Darkglass Alpha Omega Photon, and Generic.
 - **Canvas timeline** — still DOM-based (EventLane/EventBlock as divs). Performance is adequate for typical song lengths but a canvas renderer was planned for large setlists.
 - **Preset drag-and-drop** — DevicePanel sidebar lists commands but drag-to-timeline isn't implemented; events are added by double-clicking the lane.
 - **Loop playback** — `loopEnabled/loopStartBar/loopEndBar` exist in transport-store but the play clock in Toolbar doesn't enforce the loop range yet.
@@ -349,7 +382,7 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 2. **Scroll X has no upper bound in ui-store** — the cap is enforced only in `Timeline.tsx handleWheel`. If you add other scroll sources, clamp there too.
 3. **Immer patches** — `applyPatch` at the bottom of project-store.ts is custom. Don't import `applyPatches` from immer — it wasn't wired up.
 4. **midi-writer-js PPQ** — uses 128 ticks/beat internally, not 480. Scale with `128/TICKS_PER_BEAT`.
-5. **Grid/Playhead offset** — TimelineGrid and Playhead receive plain `scrollX` (not `scrollX - 144`) because they live inside the `left: 144px` clipped wrapper div.
+5. **Grid/Playhead offset** — TimelineGrid and Playhead receive plain `scrollX` (not `scrollX - 144`) because they each live inside their own `left: 144px` clipped wrapper div. The Playhead wrapper has `z-30` and is rendered after the lanes; the Grid wrapper has no z-index and renders behind lanes.
 6. **audioOffsetMs sign** — positive = audio starts before bar 1 (common case: recording has silence before the first downbeat). Waveform shifts LEFT by `offsetPx`.
 7. **setSongProperty staleness** — in async callbacks (e.g. `audio.onloadedmetadata`), capture `song.bpm` and `song.timeSignature` in the `useCallback` deps, not inside the async handler, to avoid stale closure values.
 8. **audioFileData blob size** — audio is stored as base64 in the JSON project file. A 5 MB MP3 becomes ~6.7 MB of base64 text. Consider this when working with large audio files or adding compression later.

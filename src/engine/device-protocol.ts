@@ -2,8 +2,9 @@ import type { MidiEvent, RawMidiMessage } from '../types/midi'
 import type { DeviceProfile, MidiDevice } from '../types/device'
 import { quadCortexProfile } from './profiles/quad-cortex'
 import { genericProfile } from './profiles/generic'
+import { darkglassAlphaOmegaPhotonProfile } from './profiles/darkglass-alpha-omega-photon'
 
-const builtInProfiles: DeviceProfile[] = [quadCortexProfile, genericProfile]
+const builtInProfiles: DeviceProfile[] = [quadCortexProfile, darkglassAlphaOmegaPhotonProfile, genericProfile]
 
 export function getBuiltInProfiles(): DeviceProfile[] {
   return builtInProfiles
