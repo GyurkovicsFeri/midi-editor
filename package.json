@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "package": "electron-vite build && electron-builder",
     "package:mac": "electron-vite build && electron-builder --mac",
-    "package:win": "electron-vite build && electron-builder --win"
+    "package:win": "electron-vite build && electron-builder --win",
+    "build:web": "vite build --outDir dist-web"
   },
   "keywords": [
     "midi",
