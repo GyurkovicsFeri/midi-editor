@@ -1,0 +1,207 @@
+import { useState, useEffect } from 'react'
+import { useProjectStore } from '../../stores/project-store'
+import { getProfile } from '../../engine/device-protocol'
+import type { MidiEvent } from '../../types/midi'
+
+interface EventEditorProps {
+  eventId: string
+  onClose: () => void
+}
+
+export function EventEditor({ eventId, onClose }: EventEditorProps) {
+  const song = useProjectStore((s) => s.activeSong())
+  const updateEvent = useProjectStore((s) => s.updateEvent)
+  const deleteEvent = useProjectStore((s) => s.deleteEvent)
+
+  const event = song.events.find((e) => e.id === eventId)
+  const device = song.devices.find((d) => d.id === event?.deviceId)
+  const profile = device ? getProfile(device.profileId) : undefined
+
+  const [bar, setBar] = useState(event?.position.bar ?? 1)
+  const [beat, setBeat] = useState(event?.position.beat ?? 1)
+  const [commandId, setCommandId] = useState(event?.commandId ?? '')
+  const [label, setLabel] = useState(event?.label ?? '')
+  const [params, setParams] = useState<Record<string, number>>(
+    event?.parameters ?? {}
+  )
+
+  useEffect(() => {
+    if (event) {
+      setBar(event.position.bar)
+      setBeat(event.position.beat)
+      setCommandId(event.commandId ?? '')
+      setLabel(event.label)
+      setParams(event.parameters ?? {})
+    }
+  }, [event])
+
+  if (!event || !device || !profile) return null
+
+  const command = profile.commands.find((c) => c.id === commandId)
+
+  const handleSave = () => {
+    updateEvent(eventId, {
+      position: { bar, beat, tick: 0 },
+      commandId,
+      label,
+      parameters: params
+    })
+    onClose()
+  }
+
+  const handleDelete = () => {
+    deleteEvent(eventId)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-gray-800 rounded-lg shadow-xl w-[420px] border border-gray-700">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+          <h2 className="text-sm font-semibold text-gray-100">Edit Event</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <svg viewBox="0 0 16 16" className="w-4 h-4 fill-current">
+              <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Device info */}
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <div
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: device.color }}
+            />
+            <span>{device.name}</span>
+            <span className="text-gray-600">Ch{device.midiChannel}</span>
+          </div>
+
+          {/* Label */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Label</label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
+                border border-gray-700 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Position */}
+          <div className="flex gap-3">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Bar</label>
+              <input
+                type="number"
+                min={1}
+                max={song.totalBars}
+                value={bar}
+                onChange={(e) => setBar(Math.max(1, Number(e.target.value)))}
+                className="w-20 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5 text-center
+                  border border-gray-700 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Beat</label>
+              <input
+                type="number"
+                min={1}
+                max={song.timeSignature[0]}
+                value={beat}
+                onChange={(e) => setBeat(Math.max(1, Number(e.target.value)))}
+                className="w-20 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5 text-center
+                  border border-gray-700 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Command */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Command</label>
+            <select
+              value={commandId}
+              onChange={(e) => {
+                setCommandId(e.target.value)
+                const newCmd = profile.commands.find((c) => c.id === e.target.value)
+                if (newCmd) {
+                  setLabel(newCmd.name)
+                  const newParams: Record<string, number> = {}
+                  newCmd.parameters?.forEach((p) => {
+                    newParams[p.name] = p.defaultValue
+                  })
+                  setParams(newParams)
+                }
+              }}
+              className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
+                border border-gray-700 focus:border-blue-500 focus:outline-none"
+            >
+              {profile.commands.map((cmd) => (
+                <option key={cmd.id} value={cmd.id}>
+                  {cmd.name}
+                </option>
+              ))}
+            </select>
+            {command?.description && (
+              <p className="text-[10px] text-gray-500 mt-1">{command.description}</p>
+            )}
+          </div>
+
+          {/* Command parameters */}
+          {command?.parameters && command.parameters.length > 0 && (
+            <div className="space-y-2">
+              {command.parameters.map((param) => (
+                <div key={param.name}>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    {param.label}
+                    <span className="text-gray-600 ml-1">
+                      ({param.min}–{param.max})
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min={param.min}
+                    max={param.max}
+                    value={params[param.name] ?? param.defaultValue}
+                    onChange={(e) =>
+                      setParams((prev) => ({
+                        ...prev,
+                        [param.name]: Number(e.target.value)
+                      }))
+                    }
+                    className="w-24 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5 text-center
+                      border border-gray-700 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-700 flex justify-between">
+          <button
+            onClick={handleDelete}
+            className="px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded"
+          >
+            Delete
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-sm text-gray-200 rounded"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-sm text-white rounded"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
