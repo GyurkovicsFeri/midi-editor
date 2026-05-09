@@ -17,7 +17,6 @@ function createDefaultSong(): Song {
     timeSignature: [4, 4],
     totalBars: 32,
     audioOffsetMs: 0,
-    devices: [],
     sections: [],
     events: []
   }
@@ -36,6 +35,7 @@ interface ProjectState {
   clipboard: MidiEvent[]
 
   activeSong: () => Song
+  setlistDevices: () => MidiDevice[]
   setSongProperty: <K extends keyof Song>(key: K, value: Song[K]) => void
 
   addDevice: (profileId: string, name: string, midiChannel: number) => void
@@ -95,7 +95,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
   return {
     project: {
       songs: [defaultSong],
-      setlist: { id: uuid(), name: 'Setlist', songIds: [defaultSong.id] },
+      setlist: { id: uuid(), name: 'Setlist', songIds: [defaultSong.id], devices: [] },
       customProfiles: [],
       activeSongId: defaultSong.id
     },
@@ -109,6 +109,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       return project.songs.find((s) => s.id === project.activeSongId) ?? project.songs[0]
     },
 
+    setlistDevices: () => get().project.setlist.devices,
+
     setSongProperty: (key, value) => {
       mutate((project) => {
         const song = project.songs.find((s) => s.id === project.activeSongId)
@@ -118,10 +120,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     addDevice: (profileId, name, midiChannel) => {
       mutate((project) => {
-        const song = project.songs.find((s) => s.id === project.activeSongId)
-        if (!song) return
-        const colorIndex = song.devices.length % DEVICE_COLORS.length
-        song.devices.push({
+        const colorIndex = project.setlist.devices.length % DEVICE_COLORS.length
+        project.setlist.devices.push({
           id: uuid(),
           name,
           profileId,
@@ -134,19 +134,18 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     updateDevice: (deviceId, changes) => {
       mutate((project) => {
-        const song = project.songs.find((s) => s.id === project.activeSongId)
-        if (!song) return
-        const device = song.devices.find((d) => d.id === deviceId)
+        const device = project.setlist.devices.find((d) => d.id === deviceId)
         if (device) Object.assign(device, changes)
       })
     },
 
     removeDevice: (deviceId) => {
       mutate((project) => {
-        const song = project.songs.find((s) => s.id === project.activeSongId)
-        if (!song) return
-        song.devices = song.devices.filter((d) => d.id !== deviceId)
-        song.events = song.events.filter((e) => e.deviceId !== deviceId)
+        project.setlist.devices = project.setlist.devices.filter((d) => d.id !== deviceId)
+        // Cascade: remove events referencing this device across all songs
+        for (const song of project.songs) {
+          song.events = song.events.filter((e) => e.deviceId !== deviceId)
+        }
       })
     },
 
@@ -292,11 +291,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       mutate((project) => {
         const src = project.songs.find((s) => s.id === songId)
         if (!src) return
-        const dup: Song = {
-          ...JSON.parse(JSON.stringify(src)),
-          id,
-          name: src.name + ' (copy)'
-        }
+        const dup: Song = { ...JSON.parse(JSON.stringify(src)), id, name: src.name + ' (copy)' }
         project.songs.push(dup)
         const idx = project.setlist.songIds.indexOf(songId)
         project.setlist.songIds.splice(idx + 1, 0, id)

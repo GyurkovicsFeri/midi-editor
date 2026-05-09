@@ -3,12 +3,12 @@ import { useUIStore } from '../../stores/ui-store'
 import { getProfile } from '../../engine/device-protocol'
 
 export function DevicePanel() {
-  const song = useProjectStore((s) => s.activeSong())
+  const devices = useProjectStore((s) => s.setlistDevices())
   const addEvent = useProjectStore((s) => s.addEvent)
   const { setSongSettingsOpen } = useUIStore()
 
   const handleAddCommand = (deviceId: string, commandId: string, label: string) => {
-    const device = song.devices.find((d) => d.id === deviceId)
+    const device = devices.find((d) => d.id === deviceId)
     if (!device) return
     addEvent({
       type: 'device-command',
@@ -21,7 +21,7 @@ export function DevicePanel() {
     })
   }
 
-  if (song.devices.length === 0) {
+  if (devices.length === 0) {
     return (
       <div className="p-4 text-center">
         <p className="text-sm text-gray-400 mb-3">No devices yet</p>
@@ -37,7 +37,7 @@ export function DevicePanel() {
 
   return (
     <div className="p-2 space-y-3">
-      {song.devices.map((device) => {
+      {devices.map((device) => {
         const profile = getProfile(device.profileId)
         if (!profile) return null
         return (

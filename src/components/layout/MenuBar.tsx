@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
-import { exportSongToMidi, downloadMidiFile } from '../../lib/midi-file-io'
+import { exportSongToMidi, exportSongToMidiFormat0, batchExportToZip, downloadMidiFile } from '../../lib/midi-file-io'
 import { downloadProjectFile, loadProjectFile } from '../../lib/project-file-io'
 
 export function MenuBar() {
@@ -12,6 +12,7 @@ export function MenuBar() {
 
   const project = useProjectStore((s) => s.project)
   const song = useProjectStore((s) => s.activeSong())
+  const devices = useProjectStore((s) => s.setlistDevices())
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const markClean = useProjectStore((s) => s.markClean)
   const setSetlistOpen = useUIStore((s) => s.setSetlistOpen)
@@ -29,13 +30,36 @@ export function MenuBar() {
   const handleExportMidi = useCallback(() => {
     setOpenMenu(null)
     try {
-      const dataUri = exportSongToMidi(song, project.customProfiles)
+      const dataUri = exportSongToMidi(song, devices, project.customProfiles)
       const safeName = song.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'song'
       downloadMidiFile(dataUri, `${safeName}.mid`)
     } catch (e) {
       console.error('Export failed:', e)
     }
-  }, [song, project.customProfiles])
+  }, [song, devices, project.customProfiles])
+
+  const handleExportMidiFormat0 = useCallback(() => {
+    setOpenMenu(null)
+    try {
+      const dataUri = exportSongToMidiFormat0(song, devices, project.customProfiles)
+      const safeName = song.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'song'
+      downloadMidiFile(dataUri, `${safeName}_f0.mid`)
+    } catch (e) {
+      console.error('Export failed:', e)
+    }
+  }, [song, devices, project.customProfiles])
+
+  const handleBatchExport = useCallback(async () => {
+    setOpenMenu(null)
+    try {
+      const orderedSongs = project.setlist.songIds
+        .map((id) => project.songs.find((s) => s.id === id))
+        .filter(Boolean) as typeof project.songs
+      await batchExportToZip(orderedSongs, devices, project.customProfiles, project.setlist.name)
+    } catch (e) {
+      console.error('Batch export failed:', e)
+    }
+  }, [project, devices])
 
   const handleSaveProject = useCallback(async () => {
     setOpenMenu(null)
@@ -91,7 +115,9 @@ export function MenuBar() {
     { label: 'Load Project...', action: handleLoadProject, shortcut: 'Ctrl+O' },
     { label: 'Save Project', action: handleSaveProject, shortcut: 'Ctrl+S' },
     { label: 'Load Reference Audio...', action: handleLoadAudio },
-    { label: 'Export MIDI File...', action: handleExportMidi, shortcut: 'Ctrl+E' }
+    { label: 'Export MIDI (Format 1, multi-track)...', action: handleExportMidi, shortcut: 'Ctrl+E' },
+    { label: 'Export MIDI (Format 0, single-track)...', action: handleExportMidiFormat0, shortcut: 'Ctrl+Shift+E' },
+    { label: 'Export All Songs as ZIP...', action: handleBatchExport }
   ]
 
   useEffect(() => {
@@ -108,7 +134,8 @@ export function MenuBar() {
           break
         case 'KeyE':
           e.preventDefault()
-          handleExportMidi()
+          if (e.shiftKey) handleExportMidiFormat0()
+          else handleExportMidi()
           break
       }
     }

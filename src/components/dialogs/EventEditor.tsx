@@ -10,11 +10,12 @@ interface EventEditorProps {
 
 export function EventEditor({ eventId, onClose }: EventEditorProps) {
   const song = useProjectStore((s) => s.activeSong())
+  const devices = useProjectStore((s) => s.setlistDevices())
   const updateEvent = useProjectStore((s) => s.updateEvent)
   const deleteEvent = useProjectStore((s) => s.deleteEvent)
 
   const event = song.events.find((e) => e.id === eventId)
-  const device = song.devices.find((d) => d.id === event?.deviceId)
+  const device = devices.find((d) => d.id === event?.deviceId)
   const profile = device ? getProfile(device.profileId) : undefined
 
   const [bar, setBar] = useState(event?.position.bar ?? 1)

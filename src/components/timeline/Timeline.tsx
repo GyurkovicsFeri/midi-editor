@@ -23,6 +23,7 @@ interface ContextMenuState {
 export function Timeline() {
   const containerRef = useRef<HTMLDivElement>(null)
   const song = useProjectStore((s) => s.activeSong())
+  const devices = useProjectStore((s) => s.setlistDevices())
   const addEvent = useProjectStore((s) => s.addEvent)
   const moveEvent = useProjectStore((s) => s.moveEvent)
   const deleteEvent = useProjectStore((s) => s.deleteEvent)
@@ -49,7 +50,7 @@ export function Timeline() {
   const totalWidth = song.totalBars * pixelsPerBar
   const laneHeight = 48
   const waveformHeight = 72
-  const lanesHeight = Math.max(200, song.devices.length * laneHeight + waveformHeight)
+  const lanesHeight = Math.max(200, devices.length * laneHeight + waveformHeight)
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -111,7 +112,7 @@ export function Timeline() {
 
   const handleLaneDoubleClick = useCallback(
     (deviceId: string, bar: number) => {
-      const device = song.devices.find((d) => d.id === deviceId)
+      const device = devices.find((d) => d.id === deviceId)
       if (!device) return
       const profile = getProfile(device.profileId)
       if (!profile || profile.commands.length === 0) return
@@ -133,12 +134,12 @@ export function Timeline() {
       })
       setEditingEventId(id)
     },
-    [song.devices, addEvent]
+    [devices, addEvent]
   )
 
   const handleLaneContextMenu = useCallback(
     (deviceId: string, bar: number, x: number, y: number) => {
-      const device = song.devices.find((d) => d.id === deviceId)
+      const device = devices.find((d) => d.id === deviceId)
       if (!device) return
       const profile = getProfile(device.profileId)
       if (!profile) return
@@ -166,7 +167,7 @@ export function Timeline() {
         }))
       })
     },
-    [song.devices, addEvent]
+    [devices, addEvent]
   )
 
   const handleAddSection = useCallback(
@@ -272,12 +273,12 @@ export function Timeline() {
         </div>
 
         <div style={{ transform: `translateY(${-scrollY}px)` }}>
-          {song.devices.length === 0 ? (
+          {devices.length === 0 ? (
             <div className="flex items-center justify-center h-48 text-gray-500 text-sm">
               No devices configured. Add a device to start placing MIDI events.
             </div>
           ) : (
-            song.devices.map((device) => {
+            devices.map((device) => {
               const deviceEvents = song.events.filter(
                 (e) => e.deviceId === device.id
               )

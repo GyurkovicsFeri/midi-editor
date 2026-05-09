@@ -1,11 +1,30 @@
 import JSZip from 'jszip'
+import type { MidiDevice } from '../types/device'
 import type { Project, Song } from '../types/project'
 
-const PROJECT_VERSION = 1
+const PROJECT_VERSION = 2
 
 interface ProjectFile {
   version: number
   project: Project
+}
+
+function migrateV1ToV2(file: ProjectFile): ProjectFile {
+  console.warn('[midiproj] Migrating project from v1 to v2 (devices moved to setlist)')
+  const project = file.project as Project & { songs: (Song & { devices?: MidiDevice[] })[] }
+
+  // Collect all unique devices from all songs (de-dup by id)
+  const seen = new Set<string>()
+  const devices: MidiDevice[] = []
+  for (const song of project.songs) {
+    for (const d of song.devices ?? []) {
+      if (!seen.has(d.id)) { seen.add(d.id); devices.push(d) }
+    }
+    delete (song as Song & { devices?: MidiDevice[] }).devices
+  }
+
+  project.setlist.devices = devices
+  return { version: 2, project }
 }
 
 /**
@@ -119,7 +138,8 @@ async function loadFromZip(buffer: ArrayBuffer): Promise<Project> {
     throw new Error('Invalid project file')
   }
 
-  const project = file.project
+  const migrated = file.version < 2 ? migrateV1ToV2(file) : file
+  const project = migrated.project
 
   // Rehydrate audio: for each song with an audioFileName, look for it in audio/
   for (const song of project.songs) {
@@ -154,10 +174,11 @@ async function loadFromZip(buffer: ArrayBuffer): Promise<Project> {
  * Kept for backwards compatibility.
  */
 function deserializeLegacyProject(json: string): Project {
-  const file = JSON.parse(json) as ProjectFile
+  let file = JSON.parse(json) as ProjectFile
   if (!file.version || !file.project) {
     throw new Error('Invalid project file')
   }
+  if (file.version < 2) file = migrateV1ToV2(file)
   const project = file.project
 
   // Rehydrate any base64-embedded audio from legacy format

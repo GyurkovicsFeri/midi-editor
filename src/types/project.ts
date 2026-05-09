@@ -19,7 +19,6 @@ export interface Song {
   audioFileData?: ArrayBuffer  // raw audio binary held in memory (persisted in .midiproj ZIP)
   audioFileName?: string       // original filename for display
   audioOffsetMs: number
-  devices: MidiDevice[]
   sections: Section[]
   events: MidiEvent[]
 }
@@ -28,6 +27,7 @@ export interface Setlist {
   id: string
   name: string
   songIds: string[]
+  devices: MidiDevice[]
 }
 
 export interface Project {

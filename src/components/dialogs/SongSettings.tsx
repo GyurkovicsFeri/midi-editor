@@ -5,6 +5,7 @@ import { getBuiltInProfiles } from '../../engine/device-protocol'
 
 export function SongSettings() {
   const song = useProjectStore((s) => s.activeSong())
+  const devices = useProjectStore((s) => s.setlistDevices())
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const addDevice = useProjectStore((s) => s.addDevice)
   const updateDevice = useProjectStore((s) => s.updateDevice)
@@ -54,12 +55,12 @@ export function SongSettings() {
             />
           </div>
 
-          {/* Devices */}
+          {/* Devices — shared across all songs in the setlist */}
           <div>
-            <label className="block text-xs text-gray-400 mb-2">Devices</label>
-            {song.devices.length > 0 && (
+            <label className="block text-xs text-gray-400 mb-2">Devices <span className="text-gray-600 font-normal">(shared across all songs)</span></label>
+            {devices.length > 0 && (
               <div className="space-y-2 mb-3">
-                {song.devices.map((device) => {
+                {devices.map((device) => {
                   const isEditing = editingDeviceId === device.id
                   return (
                     <div
