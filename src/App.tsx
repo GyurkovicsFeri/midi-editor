@@ -1,15 +1,20 @@
 import { Toolbar } from './components/layout/Toolbar'
 import { StatusBar } from './components/layout/StatusBar'
 import { Timeline } from './components/timeline/Timeline'
+import { EventListView } from './components/timeline/EventListView'
 import { DevicePanel } from './components/sidebar/DevicePanel'
 import { SongSettings } from './components/dialogs/SongSettings'
 import { SetlistManager } from './components/dialogs/SetlistManager'
+import { HelpDialog } from './components/dialogs/HelpDialog'
 import { useUIStore } from './stores/ui-store'
 
 export function App() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const songSettingsOpen = useUIStore((s) => s.songSettingsOpen)
   const setlistOpen = useUIStore((s) => s.setlistOpen)
+  const helpOpen = useUIStore((s) => s.helpOpen)
+  const viewMode = useUIStore((s) => s.viewMode)
+  const setViewMode = useUIStore((s) => s.setViewMode)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
 
   return (
@@ -52,8 +57,40 @@ export function App() {
           </button>
         )}
 
-        {/* Timeline */}
-        <Timeline />
+        {/* Main view */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* View toggle */}
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition-colors ${
+                viewMode === 'timeline'
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current">
+                <path d="M1 3.75A.75.75 0 011.75 3h12.5a.75.75 0 010 1.5H1.75A.75.75 0 011 3.75zm0 4A.75.75 0 011.75 7h12.5a.75.75 0 010 1.5H1.75A.75.75 0 011 7.75zm0 4A.75.75 0 011.75 11h12.5a.75.75 0 010 1.5H1.75A.75.75 0 011 11.75z" />
+              </svg>
+              Timeline
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current">
+                <path d="M2 2h2v2H2V2zm0 5h2v2H2V7zm0 5h2v2H2v-2zm4-10h8v2H6V2zm0 5h8v2H6V7zm0 5h8v2H6v-2z" />
+              </svg>
+              Event List
+            </button>
+          </div>
+
+          {viewMode === 'timeline' ? <Timeline /> : <EventListView />}
+        </div>
       </div>
 
       <StatusBar />
@@ -61,6 +98,7 @@ export function App() {
       {/* Dialogs */}
       {songSettingsOpen && <SongSettings />}
       {setlistOpen && <SetlistManager />}
+      {helpOpen && <HelpDialog />}
     </div>
   )
 }

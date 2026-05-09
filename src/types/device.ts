@@ -36,6 +36,8 @@ export interface Preset {
   id: string
   name: string
   programNumber: number
+  bank: number        // CC#0 value (0 = presets 0-127, 1 = presets 128-255)
+  setlistIndex: number // CC#32 value (0 = Factory, 1 = My Presets, 2-12 = User)
   scenes: Scene[]
 }
 

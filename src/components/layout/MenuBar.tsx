@@ -16,6 +16,7 @@ export function MenuBar() {
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const markClean = useProjectStore((s) => s.markClean)
   const setSetlistOpen = useUIStore((s) => s.setSetlistOpen)
+  const setHelpOpen = useUIStore((s) => s.setHelpOpen)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -122,6 +123,11 @@ export function MenuBar() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === '?') {
+        setHelpOpen(true)
+        return
+      }
       if (!(e.metaKey || e.ctrlKey)) return
       switch (e.code) {
         case 'KeyS':
@@ -141,7 +147,7 @@ export function MenuBar() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [handleSaveProject, handleLoadProject, handleExportMidi])
+  }, [handleSaveProject, handleLoadProject, handleExportMidi, setHelpOpen])
 
   return (
     <div ref={menuRef} className="relative flex items-center gap-1">
@@ -163,6 +169,13 @@ export function MenuBar() {
         className="px-3 py-1 text-xs font-medium rounded text-gray-300 hover:bg-gray-700/50"
       >
         Setlist
+      </button>
+      <button
+        onClick={() => setHelpOpen(true)}
+        className="px-3 py-1 text-xs font-medium rounded text-gray-300 hover:bg-gray-700/50"
+        title="Help / User Manual (?)"
+      >
+        Help
       </button>
       {openMenu === 'File' && (
         <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-xl py-1 min-w-[220px] z-50">

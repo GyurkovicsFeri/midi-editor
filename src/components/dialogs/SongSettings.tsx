@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { getBuiltInProfiles } from '../../engine/device-protocol'
+import type { Preset, Scene } from '../../types/device'
+
+const SCENE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
 export function SongSettings() {
   const song = useProjectStore((s) => s.activeSong())
@@ -16,6 +19,63 @@ export function SongSettings() {
   const [newDeviceProfile, setNewDeviceProfile] = useState('quad-cortex')
   const [newDeviceChannel, setNewDeviceChannel] = useState(1)
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null)
+  const [expandedPresetIds, setExpandedPresetIds] = useState<Set<string>>(new Set())
+
+  const togglePresetExpanded = (id: string) => {
+    setExpandedPresetIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const handleAddPreset = (deviceId: string) => {
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device) return
+    const preset: Preset = {
+      id: crypto.randomUUID(),
+      name: 'New Preset',
+      programNumber: 0,
+      bank: 0,
+      setlistIndex: 1,
+      scenes: []
+    }
+    updateDevice(deviceId, { presets: [...device.presets, preset] })
+  }
+
+  const handleUpdatePreset = (deviceId: string, presetId: string, changes: Partial<Preset>) => {
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device) return
+    updateDevice(deviceId, {
+      presets: device.presets.map((p) => (p.id === presetId ? { ...p, ...changes } : p))
+    })
+  }
+
+  const handleRemovePreset = (deviceId: string, presetId: string) => {
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device) return
+    updateDevice(deviceId, { presets: device.presets.filter((p) => p.id !== presetId) })
+    setExpandedPresetIds((prev) => { const next = new Set(prev); next.delete(presetId); return next })
+  }
+
+  const handleUpdateScene = (deviceId: string, presetId: string, sceneNumber: number, name: string) => {
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device) return
+    const preset = device.presets.find((p) => p.id === presetId)
+    if (!preset) return
+    let scenes: Scene[]
+    if (name.trim() === '') {
+      scenes = preset.scenes.filter((s) => s.sceneNumber !== sceneNumber)
+    } else {
+      const existing = preset.scenes.find((s) => s.sceneNumber === sceneNumber)
+      if (existing) {
+        scenes = preset.scenes.map((s) => s.sceneNumber === sceneNumber ? { ...s, name: name.trim() } : s)
+      } else {
+        scenes = [...preset.scenes, { id: crypto.randomUUID(), name: name.trim(), sceneNumber }]
+      }
+    }
+    handleUpdatePreset(deviceId, presetId, { scenes })
+  }
 
   const profiles = getBuiltInProfiles()
 
@@ -121,6 +181,130 @@ export function SongSettings() {
                               />
                             </div>
                           </div>
+                          {/* QC Presets section */}
+                          {device.profileId === 'quad-cortex' && (
+                            <div className="border-t border-gray-700 pt-2 mt-1">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                                  Presets
+                                </span>
+                                <button
+                                  onClick={() => handleAddPreset(device.id)}
+                                  className="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded hover:bg-blue-900/30"
+                                >
+                                  + Add Preset
+                                </button>
+                              </div>
+
+                              {device.presets.length === 0 && (
+                                <p className="text-[10px] text-gray-600 mb-1">
+                                  No presets defined. Add one to use named dropdowns in the event editor.
+                                </p>
+                              )}
+
+                              <div className="space-y-1.5">
+                                {device.presets.map((preset) => {
+                                  const isExpanded = expandedPresetIds.has(preset.id)
+                                  return (
+                                    <div key={preset.id} className="bg-gray-800 rounded border border-gray-700/50">
+                                      {/* Preset header row */}
+                                      <div className="flex items-center gap-1.5 px-2 py-1.5">
+                                        <button
+                                          onClick={() => togglePresetExpanded(preset.id)}
+                                          className="text-gray-600 hover:text-gray-400 shrink-0"
+                                          title={isExpanded ? 'Hide scenes' : 'Show scenes'}
+                                        >
+                                          <svg viewBox="0 0 16 16" className={`w-3 h-3 fill-current transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                                            <path d="M6 3.75a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H7.5v8.25a.75.75 0 01-1.5 0V3.75z" transform="rotate(-90 8 8) translate(-2 0)"/>
+                                            <path d="M5.22 8.72a.75.75 0 001.06 1.06l3-3a.75.75 0 000-1.06l-3-3a.75.75 0 00-1.06 1.06L7.94 6.5H2.75a.75.75 0 000 1.5H7.94L5.22 8.72z"/>
+                                          </svg>
+                                        </button>
+                                        {/* Name */}
+                                        <input
+                                          type="text"
+                                          value={preset.name}
+                                          onChange={(e) => handleUpdatePreset(device.id, preset.id, { name: e.target.value })}
+                                          className="flex-1 bg-gray-900 text-xs text-gray-200 rounded px-2 py-1
+                                            border border-gray-700 focus:border-blue-500 focus:outline-none min-w-0"
+                                          placeholder="Preset name"
+                                        />
+                                        {/* Program # */}
+                                        <div className="shrink-0">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            max={127}
+                                            value={preset.programNumber}
+                                            onChange={(e) => handleUpdatePreset(device.id, preset.id, { programNumber: Math.max(0, Math.min(127, Number(e.target.value))) })}
+                                            className="w-14 bg-gray-900 text-xs text-gray-200 rounded px-1.5 py-1 text-center
+                                              border border-gray-700 focus:border-blue-500 focus:outline-none"
+                                            title="Program number (0–127)"
+                                          />
+                                        </div>
+                                        {/* Bank */}
+                                        <select
+                                          value={preset.bank}
+                                          onChange={(e) => handleUpdatePreset(device.id, preset.id, { bank: Number(e.target.value) })}
+                                          className="bg-gray-900 text-xs text-gray-200 rounded px-1.5 py-1
+                                            border border-gray-700 focus:border-blue-500 focus:outline-none shrink-0"
+                                          title="Bank (CC#0)"
+                                        >
+                                          <option value={0}>Bank 0</option>
+                                          <option value={1}>Bank 1</option>
+                                        </select>
+                                        {/* Setlist */}
+                                        <div className="shrink-0">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            max={12}
+                                            value={preset.setlistIndex}
+                                            onChange={(e) => handleUpdatePreset(device.id, preset.id, { setlistIndex: Math.max(0, Math.min(12, Number(e.target.value))) })}
+                                            className="w-14 bg-gray-900 text-xs text-gray-200 rounded px-1.5 py-1 text-center
+                                              border border-gray-700 focus:border-blue-500 focus:outline-none"
+                                            title="Setlist index (CC#32): 0=Factory, 1=My Presets, 2–12=User"
+                                          />
+                                        </div>
+                                        <button
+                                          onClick={() => handleRemovePreset(device.id, preset.id)}
+                                          className="text-red-500 hover:text-red-400 shrink-0 px-1"
+                                          title="Remove preset"
+                                        >
+                                          <svg viewBox="0 0 16 16" className="w-3 h-3 fill-current">
+                                            <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+                                          </svg>
+                                        </button>
+                                      </div>
+
+                                      {/* Scene names — expandable */}
+                                      {isExpanded && (
+                                        <div className="px-2 pb-2 border-t border-gray-700 mt-0.5 pt-1.5 grid grid-cols-4 gap-1">
+                                          {SCENE_LETTERS.map((letter, i) => {
+                                            const sceneNum = i + 1
+                                            const scene = preset.scenes.find((s) => s.sceneNumber === sceneNum)
+                                            return (
+                                              <div key={letter} className="flex items-center gap-1">
+                                                <span className="text-[10px] text-gray-500 w-4 shrink-0">{letter}</span>
+                                                <input
+                                                  type="text"
+                                                  value={scene?.name ?? ''}
+                                                  onChange={(e) => handleUpdateScene(device.id, preset.id, sceneNum, e.target.value)}
+                                                  placeholder="—"
+                                                  className="flex-1 bg-gray-900 text-[10px] text-gray-300 rounded px-1.5 py-0.5
+                                                    border border-gray-700 focus:border-blue-500 focus:outline-none min-w-0"
+                                                />
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => removeDevice(device.id)}

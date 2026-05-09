@@ -152,30 +152,84 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
           {/* Command parameters */}
           {command?.parameters && command.parameters.length > 0 && (
             <div className="space-y-2">
-              {command.parameters.map((param) => (
-                <div key={param.name}>
-                  <label className="block text-xs text-gray-400 mb-1">
-                    {param.label}
-                    <span className="text-gray-600 ml-1">
-                      ({param.min}–{param.max})
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    min={param.min}
-                    max={param.max}
-                    value={params[param.name] ?? param.defaultValue}
-                    onChange={(e) =>
-                      setParams((prev) => ({
-                        ...prev,
-                        [param.name]: Number(e.target.value)
-                      }))
-                    }
-                    className="w-24 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5 text-center
+              {/* QC preset picker: dropdown when presets are configured */}
+              {commandId === 'qc-preset' && device.presets.length > 0 ? (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Preset</label>
+                  <select
+                    value={params['preset'] ?? 0}
+                    onChange={(e) => {
+                      const preset = device.presets.find(
+                        (p) => p.programNumber === Number(e.target.value) &&
+                               p.bank === (params['bank'] ?? 0) &&
+                               p.setlistIndex === (params['setlist'] ?? 1)
+                      ) ?? device.presets.find((p) => p.programNumber === Number(e.target.value))
+                      if (preset) {
+                        setParams({ preset: preset.programNumber, bank: preset.bank, setlist: preset.setlistIndex })
+                        setLabel(preset.name)
+                      }
+                    }}
+                    className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
                       border border-gray-700 focus:border-blue-500 focus:outline-none"
-                  />
+                  >
+                    {device.presets.map((p) => (
+                      <option key={p.id} value={p.programNumber}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+              ) : commandId === 'qc-scene' ? (
+                /* QC scene picker: A–H dropdown, with optional user-defined names */
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Scene</label>
+                  <select
+                    value={params['scene'] ?? 1}
+                    onChange={(e) => {
+                      const sceneNum = Number(e.target.value)
+                      setParams((prev) => ({ ...prev, scene: sceneNum }))
+                      // If any preset has a named scene, update label
+                      const sceneLetters = ['A','B','C','D','E','F','G','H']
+                      const letter = sceneLetters[sceneNum - 1] ?? String(sceneNum)
+                      const namedScene = device.presets.flatMap((p) => p.scenes)
+                        .find((s) => s.sceneNumber === sceneNum)
+                      setLabel(namedScene ? `Scene ${letter}: ${namedScene.name}` : `Scene ${letter}`)
+                    }}
+                    className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
+                      border border-gray-700 focus:border-blue-500 focus:outline-none"
+                  >
+                    {['A','B','C','D','E','F','G','H'].map((letter, i) => {
+                      const sceneNum = i + 1
+                      const named = device.presets.flatMap((p) => p.scenes)
+                        .find((s) => s.sceneNumber === sceneNum)
+                      return (
+                        <option key={letter} value={sceneNum}>
+                          {letter}{named ? ` — ${named.name}` : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+              ) : (
+                /* Generic numeric parameter inputs */
+                command.parameters.map((param) => (
+                  <div key={param.name}>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      {param.label}
+                      <span className="text-gray-600 ml-1">({param.min}–{param.max})</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={param.min}
+                      max={param.max}
+                      value={params[param.name] ?? param.defaultValue}
+                      onChange={(e) =>
+                        setParams((prev) => ({ ...prev, [param.name]: Number(e.target.value) }))
+                      }
+                      className="w-24 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5 text-center
+                        border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
