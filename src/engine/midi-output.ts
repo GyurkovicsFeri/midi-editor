@@ -39,3 +39,27 @@ export function sendAllNotesOff(port: MIDIOutput, channel: number): void {
   const ch = channel - 1
   port.send([0xb0 | ch, 123, 0])
 }
+
+export function sendClockStart(port: MIDIOutput): void {
+  if (port.state === 'disconnected') return
+  port.send([0xfa])
+}
+
+export function sendClockContinue(port: MIDIOutput): void {
+  if (port.state === 'disconnected') return
+  port.send([0xfb])
+}
+
+export function sendClockStop(port: MIDIOutput): void {
+  if (port.state === 'disconnected') return
+  port.send([0xfc])
+}
+
+export function sendClockPulse(port: MIDIOutput, timestamp?: number): void {
+  if (port.state === 'disconnected') return
+  if (timestamp !== undefined) {
+    port.send([0xf8], timestamp)
+  } else {
+    port.send([0xf8])
+  }
+}

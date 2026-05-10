@@ -3,26 +3,33 @@ import { useTransportStore } from '../stores/transport-store'
 import { useProjectStore } from '../stores/project-store'
 import { useMidiOutputStore } from '../stores/midi-output-store'
 import { resolveEventToRawMidi, getProfile } from '../engine/device-protocol'
-import { sendMessages } from '../engine/midi-output'
+import { sendMessages, sendClockStart, sendClockStop, sendClockPulse } from '../engine/midi-output'
 import { positionToTotalTicks, secondsToPosition } from '../engine/clock'
+
+const CLOCK_PPQ = 24
 
 export function useMidiPlayback() {
   const sentEventsRef = useRef<Set<string>>(new Set())
   const lastTickRef = useRef<number>(-1)
   const wasPlayingRef = useRef(false)
+  const nextClockPulseRef = useRef<number>(0)
+  const playStartTimeRef = useRef<number>(0)
 
   useEffect(() => {
-    const unsubscribe = useTransportStore.subscribe((state, prevState) => {
+    const unsubscribe = useTransportStore.subscribe((state) => {
       const { isPlaying, currentTimeSeconds } = state
       const song = useProjectStore.getState().activeSong()
       const devices = useProjectStore.getState().setlistDevices()
       const customProfiles = useProjectStore.getState().project.customProfiles
       const beatsPerBar = song.timeSignature[0]
 
+      const clockPorts = useMidiOutputStore.getState().getClockPorts()
+
       if (!isPlaying && wasPlayingRef.current) {
         sentEventsRef.current.clear()
         lastTickRef.current = -1
         wasPlayingRef.current = false
+        for (const port of clockPorts) sendClockStop(port)
         return
       }
 
@@ -33,6 +40,14 @@ export function useMidiPlayback() {
         const pos = secondsToPosition(currentTimeSeconds, song.bpm, beatsPerBar)
         lastTickRef.current = positionToTotalTicks(pos, beatsPerBar)
         sentEventsRef.current.clear()
+
+        // Initialize clock: compute which pulse we're at based on current position
+        const secondsPerBeat = 60 / song.bpm
+        const secondsPerPulse = secondsPerBeat / CLOCK_PPQ
+        nextClockPulseRef.current = Math.ceil(currentTimeSeconds / secondsPerPulse)
+        playStartTimeRef.current = performance.now() - currentTimeSeconds * 1000
+
+        for (const port of clockPorts) sendClockStart(port)
         return
       }
 
@@ -43,9 +58,15 @@ export function useMidiPlayback() {
       if (currentTick < lastTickRef.current - 10) {
         sentEventsRef.current.clear()
         lastTickRef.current = currentTick
+
+        const secondsPerBeat = 60 / song.bpm
+        const secondsPerPulse = secondsPerBeat / CLOCK_PPQ
+        nextClockPulseRef.current = Math.ceil(currentTimeSeconds / secondsPerPulse)
+        playStartTimeRef.current = performance.now() - currentTimeSeconds * 1000
         return
       }
 
+      // --- MIDI events ---
       const lastTick = lastTickRef.current
 
       for (const event of song.events) {
@@ -65,6 +86,26 @@ export function useMidiPlayback() {
       }
 
       lastTickRef.current = currentTick
+
+      // --- MIDI Clock pulses ---
+      if (clockPorts.length === 0) return
+
+      const secondsPerBeat = 60 / song.bpm
+      const secondsPerPulse = secondsPerBeat / CLOCK_PPQ
+      const currentPulse = currentTimeSeconds / secondsPerPulse
+
+      // Schedule pulses with precise timestamps using look-ahead
+      const baseTime = playStartTimeRef.current
+      while (nextClockPulseRef.current <= currentPulse + CLOCK_PPQ) {
+        const pulseTime = nextClockPulseRef.current * secondsPerPulse * 1000 + baseTime
+        // Only schedule future pulses (or pulses in the current frame window)
+        if (pulseTime >= performance.now() - 5) {
+          for (const port of clockPorts) sendClockPulse(port, pulseTime)
+        }
+        nextClockPulseRef.current++
+        // Safety: don't schedule more than one beat ahead
+        if (nextClockPulseRef.current > currentPulse + CLOCK_PPQ) break
+      }
     })
 
     return unsubscribe

@@ -80,11 +80,13 @@ export function SongSettings() {
 
   const availablePorts = useMidiOutputStore((s) => s.availablePorts)
   const devicePortMap = useMidiOutputStore((s) => s.devicePortMap)
+  const clockPortIds = useMidiOutputStore((s) => s.clockPortIds)
   const connectionStatus = useMidiOutputStore((s) => s.connectionStatus)
   const errorMessage = useMidiOutputStore((s) => s.errorMessage)
   const setDevicePort = useMidiOutputStore((s) => s.setDevicePort)
   const clearDevicePort = useMidiOutputStore((s) => s.clearDevicePort)
   const refreshPorts = useMidiOutputStore((s) => s.refreshPorts)
+  const toggleClockForPort = useMidiOutputStore((s) => s.toggleClockForPort)
 
   const profiles = getBuiltInProfiles()
 
@@ -465,6 +467,30 @@ export function SongSettings() {
 
             {connectionStatus === 'connected' && devices.length === 0 && (
               <p className="text-[10px] text-gray-600">Add devices above to map them to MIDI output ports.</p>
+            )}
+
+            {connectionStatus === 'connected' && availablePorts.length > 0 && (
+              <div className="mt-3 border-t border-gray-700 pt-2">
+                <span className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  MIDI Clock
+                </span>
+                <div className="space-y-1">
+                  {availablePorts.map((port) => (
+                    <label key={port.id} className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-900/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={clockPortIds.has(port.id)}
+                        onChange={() => toggleClockForPort(port.id)}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-xs text-gray-300">{port.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-600 mt-1">
+                  Sends 24 PPQ clock + Start/Stop to sync tempo-based effects.
+                </p>
+              </div>
             )}
           </div>
         </div>
