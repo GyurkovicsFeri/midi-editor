@@ -5,6 +5,7 @@ import type { DeviceProfile, MidiDevice } from '../types/device'
 import { getProfile, resolveEventToRawMidi } from '../engine/device-protocol'
 import { positionToTotalTicks } from '../engine/clock'
 import { TICKS_PER_BEAT } from '../types/midi'
+import { isSweepCommand, expandSweepToMessages } from '../engine/sweep'
 
 export function exportSongToMidi(
   song: Song,
@@ -35,43 +36,51 @@ export function exportSongToMidi(
         )
       })
 
-    let lastScaledTick = 0
+    interface TickedMsg {
+      scaledTick: number
+      msg: { type: 'cc' | 'pc'; channel: number; data: number[] }
+    }
+
+    const tickedMessages: TickedMsg[] = []
 
     for (const event of deviceEvents) {
-      const eventTick = positionToTotalTicks(event.position, beatsPerBar)
-      const rawMessages = resolveEventToRawMidi(event, device, profile)
+      if (event.commandId && isSweepCommand(event.commandId)) {
+        tickedMessages.push(...expandSweepToMessages(event, device, profile, beatsPerBar))
+      } else {
+        const eventTick = positionToTotalTicks(event.position, beatsPerBar)
+        const scaledTick = Math.round(eventTick * scaleFactor)
+        const rawMessages = resolveEventToRawMidi(event, device, profile)
+        for (const msg of rawMessages) {
+          tickedMessages.push({ scaledTick, msg })
+        }
+      }
+    }
 
-      const scaledTick = Math.round(eventTick * scaleFactor)
+    tickedMessages.sort((a, b) => a.scaledTick - b.scaledTick)
+
+    let lastScaledTick = 0
+    for (const { scaledTick, msg } of tickedMessages) {
       const delta = scaledTick - lastScaledTick
+      lastScaledTick = scaledTick
 
-      let isFirst = true
-      for (const msg of rawMessages) {
-        // Only the first message in a group gets the delta; subsequent messages
-        // in the same group (e.g. CC+PC for scene change) fire at the same tick.
-        const msgDelta = isFirst ? delta : 0
-
-        if (msg.type === 'cc') {
-          // ControllerChangeEvent expects 1-based channel (subtracts 1 internally)
-          const ccEvent = new MidiWriter.ControllerChangeEvent({
+      if (msg.type === 'cc') {
+        track.addEvent(
+          new MidiWriter.ControllerChangeEvent({
             controllerNumber: msg.data[0],
             controllerValue: msg.data[1],
             channel: msg.channel as MidiWriter.Channel,
-            delta: msgDelta
+            delta
           })
-          track.addEvent(ccEvent)
-        } else if (msg.type === 'pc') {
-          // ProgramChangeEvent expects 0-based channel (uses value as-is)
-          const pcEvent = new MidiWriter.ProgramChangeEvent({
+        )
+      } else if (msg.type === 'pc') {
+        track.addEvent(
+          new MidiWriter.ProgramChangeEvent({
             instrument: msg.data[0],
             channel: (msg.channel - 1) as MidiWriter.Channel,
-            delta: msgDelta
+            delta
           })
-          track.addEvent(pcEvent)
-        }
-        isFirst = false
+        )
       }
-
-      lastScaledTick = scaledTick
     }
 
     tracks.push(track)
@@ -108,12 +117,16 @@ export function exportSongToMidiFormat0(
       )
 
     for (const event of deviceEvents) {
-      const scaledTick = Math.round(
-        positionToTotalTicks(event.position, beatsPerBar) * scaleFactor
-      )
-      const rawMessages = resolveEventToRawMidi(event, device, profile)
-      for (const msg of rawMessages) {
-        allMessages.push({ scaledTick, msg })
+      if (event.commandId && isSweepCommand(event.commandId)) {
+        allMessages.push(...expandSweepToMessages(event, device, profile, beatsPerBar))
+      } else {
+        const scaledTick = Math.round(
+          positionToTotalTicks(event.position, beatsPerBar) * scaleFactor
+        )
+        const rawMessages = resolveEventToRawMidi(event, device, profile)
+        for (const msg of rawMessages) {
+          allMessages.push({ scaledTick, msg })
+        }
       }
     }
   }

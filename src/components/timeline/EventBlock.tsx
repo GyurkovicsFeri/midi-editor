@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react'
 import type { MidiEvent, MusicalPosition } from '../../types/midi'
 import { TICKS_PER_BEAT } from '../../types/midi'
+import { isSweepCommand, getSweepDurationBeats } from '../../engine/sweep'
 
 interface EventBlockProps {
   event: MidiEvent
@@ -30,7 +31,11 @@ export function EventBlock({
       pixelsPerBeat +
     (event.position.tick / TICKS_PER_BEAT) * pixelsPerBeat
 
-  const width = Math.max(pixelsPerBeat * 0.8, 40)
+  const isSweep = !!(event.commandId && isSweepCommand(event.commandId))
+  const sweepDuration = isSweep ? getSweepDurationBeats(event) : 0
+  const width = isSweep
+    ? Math.max(sweepDuration * pixelsPerBeat, 40)
+    : Math.max(pixelsPerBeat * 0.8, 40)
   const dragStartRef = useRef<{ startX: number; origX: number } | null>(null)
 
   const handleMouseDown = useCallback(
@@ -109,7 +114,20 @@ export function EventBlock({
       }}
       title={`${event.label} — Bar ${event.position.bar}, Beat ${event.position.beat}`}
     >
-      <span className="truncate text-white drop-shadow-sm">{event.label}</span>
+      {isSweep && (
+        <div
+          className="absolute inset-0 rounded pointer-events-none"
+          style={{
+            background: `linear-gradient(to right, rgba(255,255,255,${(event.parameters?.startValue ?? 0) / 127 * 0.35}), rgba(255,255,255,${(event.parameters?.endValue ?? 127) / 127 * 0.35}))`
+          }}
+        />
+      )}
+      <span className="truncate text-white drop-shadow-sm relative z-10">{event.label}</span>
+      {isSweep && width > 60 && (
+        <span className="absolute right-1.5 text-[10px] text-white/70 drop-shadow-sm z-10">
+          {event.parameters?.endValue ?? 127}
+        </span>
+      )}
     </div>
   )
 }

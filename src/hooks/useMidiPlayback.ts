@@ -5,6 +5,8 @@ import { useMidiOutputStore } from '../stores/midi-output-store'
 import { resolveEventToRawMidi, getProfile } from '../engine/device-protocol'
 import { sendMessages, sendClockStart, sendClockStop, sendClockPulse } from '../engine/midi-output'
 import { positionToTotalTicks, secondsToPosition } from '../engine/clock'
+import { TICKS_PER_BEAT } from '../types/midi'
+import { isSweepCommand, applyEasing } from '../engine/sweep'
 
 const CLOCK_PPQ = 24
 
@@ -14,6 +16,19 @@ export function useMidiPlayback() {
   const wasPlayingRef = useRef(false)
   const nextClockPulseRef = useRef<number>(0)
   const playStartTimeRef = useRef<number>(0)
+
+  interface ActiveSweep {
+    startTick: number
+    endTick: number
+    controller: number
+    startValue: number
+    endValue: number
+    easingType: number
+    lastSentValue: number
+    channel: number
+    port: MIDIOutput
+  }
+  const activeSweepsRef = useRef<Map<string, ActiveSweep>>(new Map())
 
   useEffect(() => {
     const unsubscribe = useTransportStore.subscribe((state) => {
@@ -27,6 +42,7 @@ export function useMidiPlayback() {
 
       if (!isPlaying && wasPlayingRef.current) {
         sentEventsRef.current.clear()
+        activeSweepsRef.current.clear()
         lastTickRef.current = -1
         wasPlayingRef.current = false
         for (const port of clockPorts) sendClockStop(port)
@@ -57,6 +73,7 @@ export function useMidiPlayback() {
       // Seek detected (jumped backward)
       if (currentTick < lastTickRef.current - 10) {
         sentEventsRef.current.clear()
+        activeSweepsRef.current.clear()
         lastTickRef.current = currentTick
 
         const secondsPerBeat = 60 / song.bpm
@@ -79,9 +96,56 @@ export function useMidiPlayback() {
           if (!port) continue
           const profile = getProfile(device.profileId, customProfiles)
           if (!profile) continue
-          const messages = resolveEventToRawMidi(event, device, profile)
-          sendMessages(port, messages)
+
+          if (event.commandId && isSweepCommand(event.commandId)) {
+            const command = profile.commands.find((c) => c.id === event.commandId)
+            const controller = command?.messages[0]?.controller
+            if (controller !== undefined) {
+              const params = event.parameters ?? {}
+              const startValue = params.startValue ?? 0
+              const durationBeats = params.durationBeats ?? 4
+              activeSweepsRef.current.set(event.id, {
+                startTick: eventTick,
+                endTick: eventTick + durationBeats * TICKS_PER_BEAT,
+                controller,
+                startValue,
+                endValue: params.endValue ?? 127,
+                easingType: params.easingType ?? 0,
+                lastSentValue: -1,
+                channel: device.midiChannel,
+                port
+              })
+              sendMessages(port, [{
+                type: 'cc', channel: device.midiChannel, data: [controller, startValue]
+              }])
+            }
+          } else {
+            const messages = resolveEventToRawMidi(event, device, profile)
+            sendMessages(port, messages)
+          }
           sentEventsRef.current.add(event.id)
+        }
+      }
+
+      // Interpolate active sweeps
+      for (const [eventId, sweep] of activeSweepsRef.current) {
+        const totalDuration = sweep.endTick - sweep.startTick
+        const t = totalDuration > 0
+          ? Math.min(1, (currentTick - sweep.startTick) / totalDuration)
+          : 1
+        const eased = applyEasing(t, sweep.easingType)
+        const value = Math.round(sweep.startValue + (sweep.endValue - sweep.startValue) * eased)
+        const clamped = Math.max(0, Math.min(127, value))
+
+        if (clamped !== sweep.lastSentValue) {
+          sendMessages(sweep.port, [{
+            type: 'cc', channel: sweep.channel, data: [sweep.controller, clamped]
+          }])
+          sweep.lastSentValue = clamped
+        }
+
+        if (t >= 1) {
+          activeSweepsRef.current.delete(eventId)
         }
       }
 

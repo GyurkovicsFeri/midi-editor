@@ -73,6 +73,34 @@ export const quadCortexProfile: DeviceProfile = {
       messages: [
         { type: 'cc', controller: 46, value: 0 }
       ]
+    },
+    {
+      id: 'qc-exp-pedal-1',
+      name: 'Expression Pedal 1 Sweep',
+      description: 'Animated CC#1 sweep from start to end value over a duration',
+      messages: [
+        { type: 'cc', controller: 1, valueParam: 'startValue' }
+      ],
+      parameters: [
+        { name: 'startValue', label: 'Start Value', min: 0, max: 127, defaultValue: 0 },
+        { name: 'endValue', label: 'End Value', min: 0, max: 127, defaultValue: 127 },
+        { name: 'durationBeats', label: 'Duration (beats)', min: 1, max: 64, defaultValue: 4 },
+        { name: 'easingType', label: 'Easing', min: 0, max: 3, defaultValue: 0 }
+      ]
+    },
+    {
+      id: 'qc-exp-pedal-2',
+      name: 'Expression Pedal 2 Sweep',
+      description: 'Animated CC#2 sweep from start to end value over a duration',
+      messages: [
+        { type: 'cc', controller: 2, valueParam: 'startValue' }
+      ],
+      parameters: [
+        { name: 'startValue', label: 'Start Value', min: 0, max: 127, defaultValue: 0 },
+        { name: 'endValue', label: 'End Value', min: 0, max: 127, defaultValue: 127 },
+        { name: 'durationBeats', label: 'Duration (beats)', min: 1, max: 64, defaultValue: 4 },
+        { name: 'easingType', label: 'Easing', min: 0, max: 3, defaultValue: 0 }
+      ]
     }
   ]
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { getProfile } from '../../engine/device-protocol'
 import type { MidiEvent } from '../../types/midi'
+import { isSweepCommand, EASING_LABELS, applyEasing } from '../../engine/sweep'
 
 interface EventEditorProps {
   eventId: string
@@ -41,10 +42,15 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
   const command = profile.commands.find((c) => c.id === commandId)
 
   const handleSave = () => {
+    let finalLabel = label
+    if (commandId && isSweepCommand(commandId)) {
+      const pedal = commandId === 'qc-exp-pedal-1' ? '1' : '2'
+      finalLabel = `Exp ${pedal}: ${params.startValue ?? 0}→${params.endValue ?? 127}`
+    }
     updateEvent(eventId, {
       position: { bar, beat, tick: 0 },
       commandId,
-      label,
+      label: finalLabel,
       parameters: params
     })
     onClose()
@@ -57,7 +63,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-[420px] border border-gray-700">
+      <div className="bg-gray-800 rounded-lg shadow-xl w-[420px] max-h-[85vh] flex flex-col border border-gray-700">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700">
           <h2 className="text-sm font-semibold text-gray-100">Edit Event</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
@@ -67,7 +73,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto">
           {/* Device info */}
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <div
@@ -124,15 +130,21 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
             <select
               value={commandId}
               onChange={(e) => {
-                setCommandId(e.target.value)
-                const newCmd = profile.commands.find((c) => c.id === e.target.value)
+                const newId = e.target.value
+                setCommandId(newId)
+                const newCmd = profile.commands.find((c) => c.id === newId)
                 if (newCmd) {
-                  setLabel(newCmd.name)
                   const newParams: Record<string, number> = {}
                   newCmd.parameters?.forEach((p) => {
                     newParams[p.name] = p.defaultValue
                   })
                   setParams(newParams)
+                  if (isSweepCommand(newId)) {
+                    const pedal = newId === 'qc-exp-pedal-1' ? '1' : '2'
+                    setLabel(`Exp ${pedal}: ${newParams.startValue ?? 0}→${newParams.endValue ?? 127}`)
+                  } else {
+                    setLabel(newCmd.name)
+                  }
                 }
               }}
               className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
@@ -207,6 +219,109 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                       )
                     })}
                   </select>
+                </div>
+              ) : commandId && isSweepCommand(commandId) ? (
+                <div className="space-y-3">
+                  {/* Start / End value sliders */}
+                  {(['startValue', 'endValue'] as const).map((paramName) => {
+                    const label = paramName === 'startValue' ? 'Start (Heel 0 → Toe 127)' : 'End (Heel 0 → Toe 127)'
+                    const val = params[paramName] ?? (paramName === 'startValue' ? 0 : 127)
+                    return (
+                      <div key={paramName}>
+                        <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={0}
+                            max={127}
+                            value={val}
+                            onChange={(e) => setParams((prev) => ({ ...prev, [paramName]: Number(e.target.value) }))}
+                            className="flex-1 accent-blue-500"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            max={127}
+                            value={val}
+                            onChange={(e) => setParams((prev) => ({ ...prev, [paramName]: Math.max(0, Math.min(127, Number(e.target.value))) }))}
+                            className="w-14 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1 text-center
+                              border border-gray-700 focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Quick-set buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setParams((prev) => ({ ...prev, startValue: 0, endValue: 127 }))}
+                      className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
+                    >
+                      Heel → Toe
+                    </button>
+                    <button
+                      onClick={() => setParams((prev) => ({ ...prev, startValue: 127, endValue: 0 }))}
+                      className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
+                    >
+                      Toe → Heel
+                    </button>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Duration (beats)</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setParams((prev) => ({ ...prev, durationBeats: Math.max(1, (prev.durationBeats ?? 4) - 1) }))}
+                        className="w-7 h-7 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm"
+                      >−</button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={64}
+                        value={params.durationBeats ?? 4}
+                        onChange={(e) => setParams((prev) => ({ ...prev, durationBeats: Math.max(1, Math.min(64, Number(e.target.value))) }))}
+                        className="w-16 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1 text-center
+                          border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => setParams((prev) => ({ ...prev, durationBeats: Math.min(64, (prev.durationBeats ?? 4) + 1) }))}
+                        className="w-7 h-7 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm"
+                      >+</button>
+                    </div>
+                  </div>
+
+                  {/* Easing */}
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Easing</label>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={params.easingType ?? 0}
+                        onChange={(e) => setParams((prev) => ({ ...prev, easingType: Number(e.target.value) }))}
+                        className="flex-1 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
+                          border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      >
+                        {EASING_LABELS.map((label, i) => (
+                          <option key={i} value={i}>{label}</option>
+                        ))}
+                      </select>
+                      {/* Easing curve preview */}
+                      <svg viewBox="0 0 40 20" className="w-20 h-10 flex-shrink-0">
+                        <rect x="0" y="0" width="40" height="20" fill="none" stroke="#4b5563" strokeWidth="0.5" rx="2" />
+                        <polyline
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="1.5"
+                          points={Array.from({ length: 21 }, (_, i) => {
+                            const t = i / 20
+                            const v = applyEasing(t, params.easingType ?? 0)
+                            return `${2 + t * 36},${18 - v * 16}`
+                          }).join(' ')}
+                        />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 /* Generic numeric parameter inputs */
