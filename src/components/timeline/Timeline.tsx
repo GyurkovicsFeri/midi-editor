@@ -61,7 +61,8 @@ export function Timeline() {
       } else {
         const containerWidth = containerRef.current?.clientWidth ?? 800
         const maxScrollX = Math.max(0, totalWidth + 144 - containerWidth)
-        setScrollX(Math.min(scrollX + e.deltaX, maxScrollX))
+        const dx = e.deltaX !== 0 ? e.deltaX : e.deltaY
+        setScrollX(Math.min(scrollX + dx, maxScrollX))
       }
     },
     [zoom, scrollX, totalWidth, setZoom, setScrollX]

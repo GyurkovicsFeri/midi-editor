@@ -121,15 +121,19 @@ export function HelpDialog() {
               <tbody>
                 {[
                   ['Preset Change', 'PC 0–5 (A–F)'],
-                  ['Bypass On/Off', 'CC#20 = 127 / 0'],
+                  ['Tuner', 'PC 6'],
+                  ['Bypass', 'PC 7'],
+                  ['Lock', 'PC 8'],
+                  ['Compression', 'CC#20 = 0–127'],
                   ['Drive', 'CC#21 = 0–127'],
-                  ['Bass', 'CC#22 = 0–127'],
-                  ['Mid', 'CC#23 = 0–127'],
-                  ['Treble', 'CC#24 = 0–127'],
-                  ['Cabinet Sim', 'CC#25 = 0–127'],
-                  ['Alpha Blend', 'CC#26 = 0–127'],
-                  ['Omega Blend', 'CC#27 = 0–127'],
-                  ['Output Level', 'CC#28 = 0–127'],
+                  ['Character', 'CC#22 = 0–127'],
+                  ['Blend', 'CC#23 = 0–127'],
+                  ['Level', 'CC#24 = 0–127'],
+                  ['Headphone Volume', 'CC#25 = 0–127'],
+                  ['EQ Slider 1–6', 'CC#26–31 = 0–127'],
+                  ['Compression Ratio', 'CC#32 = 0–127'],
+                  ['Distortion Mode', 'CC#33 = 0–127'],
+                  ['Active Cabsim', 'CC#34 = 0–127'],
                 ].map(([cmd, msg]) => (
                   <tr key={cmd} className="border-b border-gray-700/50">
                     <td className="py-1.5 pr-4 text-gray-200">{cmd}</td>
