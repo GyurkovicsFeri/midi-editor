@@ -262,14 +262,22 @@ CC assignments are **user-configurable** in Darkglass Suite. The bassist must en
 
 | CC# | Control | Values |
 |-----|---------|--------|
+| 20 | Compression | 0–127 |
 | 21 | Drive | 0–127 |
-| 22 | Alpha-Omega Mix | 0–127 |
-| 23–28 | EQ Slider 1–6 | 0–127 (6-band EQ) |
-| 29 | Dist. Blend | 0–127 |
+| 22 | Character | 0–127 |
+| 23 | Blend | 0–127 |
+| 24 | Level | 0–127 |
+| 25 | Headphone Volume | 0–127 |
+| 26–31 | EQ Slider 1–6 | 0–127 (6-band EQ) |
+| 32 | Compression Ratio | 0–127 |
+| 33 | Distortion Mode | 0–127 |
+| 34 | Active Cabsim | 0–127 |
 
-**Preset recall & tuner** — single PC message:
+**Preset recall & utility** — single PC message:
 - `PC 0–5` → Presets A–F (separate commands per preset in the profile, each with hardcoded `msg.program`)
 - `PC 6` → Tuner toggle
+- `PC 7` → Bypass toggle
+- `PC 8` → Lock toggle
 
 ---
 
