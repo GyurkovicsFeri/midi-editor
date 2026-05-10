@@ -8,6 +8,7 @@ interface MidiOutputState {
   midiAccess: MIDIAccess | null
   availablePorts: Array<{ id: string; name: string }>
   devicePortMap: Record<string, string>
+  clockPortIds: Set<string>
   connectionStatus: 'disconnected' | 'connected' | 'error'
   errorMessage: string | null
 
@@ -17,9 +18,12 @@ interface MidiOutputState {
   clearDevicePort: (deviceId: string) => void
   getPortForDevice: (deviceId: string) => MIDIOutput | null
   sendNow: (deviceId: string, event: MidiEvent) => void
+  toggleClockForPort: (portId: string) => void
+  getClockPorts: () => MIDIOutput[]
 }
 
 const STORAGE_KEY = 'midi-output-device-port-map'
+const CLOCK_STORAGE_KEY = 'midi-output-clock-ports'
 
 function loadDevicePortMap(): Record<string, string> {
   try {
@@ -34,10 +38,24 @@ function saveDevicePortMap(map: Record<string, string>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
 }
 
+function loadClockPortIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CLOCK_STORAGE_KEY)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveClockPortIds(ids: Set<string>) {
+  localStorage.setItem(CLOCK_STORAGE_KEY, JSON.stringify([...ids]))
+}
+
 export const useMidiOutputStore = create<MidiOutputState>((set, get) => ({
   midiAccess: null,
   availablePorts: [],
   devicePortMap: loadDevicePortMap(),
+  clockPortIds: loadClockPortIds(),
   connectionStatus: 'disconnected',
   errorMessage: null,
 
@@ -87,6 +105,28 @@ export const useMidiOutputStore = create<MidiOutputState>((set, get) => ({
     if (!portId) return null
     const port = midiAccess.outputs.get(portId)
     return port && port.state !== 'disconnected' ? port : null
+  },
+
+  toggleClockForPort: (portId) => {
+    const ids = new Set(get().clockPortIds)
+    if (ids.has(portId)) {
+      ids.delete(portId)
+    } else {
+      ids.add(portId)
+    }
+    set({ clockPortIds: ids })
+    saveClockPortIds(ids)
+  },
+
+  getClockPorts: () => {
+    const { midiAccess, clockPortIds } = get()
+    if (!midiAccess) return []
+    const ports: MIDIOutput[] = []
+    for (const portId of clockPortIds) {
+      const port = midiAccess.outputs.get(portId)
+      if (port && port.state !== 'disconnected') ports.push(port)
+    }
+    return ports
   },
 
   sendNow: (deviceId, event) => {
