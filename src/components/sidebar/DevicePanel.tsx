@@ -1,11 +1,15 @@
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
+import { useMidiOutputStore } from '../../stores/midi-output-store'
 import { getProfile } from '../../engine/device-protocol'
+import type { MidiEvent } from '../../types/midi'
 
 export function DevicePanel() {
   const devices = useProjectStore((s) => s.setlistDevices())
   const addEvent = useProjectStore((s) => s.addEvent)
   const { setSongSettingsOpen } = useUIStore()
+  const sendNow = useMidiOutputStore((s) => s.sendNow)
+  const getPortForDevice = useMidiOutputStore((s) => s.getPortForDevice)
 
   const handleAddCommand = (deviceId: string, commandId: string, label: string) => {
     const device = devices.find((d) => d.id === deviceId)
@@ -53,15 +57,39 @@ export function DevicePanel() {
             </div>
             <div className="space-y-0.5">
               {profile.commands.map((cmd) => (
-                <button
-                  key={cmd.id}
-                  onClick={() => handleAddCommand(device.id, cmd.id, cmd.name)}
-                  className="w-full text-left px-3 py-1.5 text-xs text-gray-300
-                    hover:bg-gray-700 rounded transition-colors"
-                  title={cmd.description}
-                >
-                  {cmd.name}
-                </button>
+                <div key={cmd.id} className="flex items-center group">
+                  <button
+                    onClick={() => handleAddCommand(device.id, cmd.id, cmd.name)}
+                    className="flex-1 text-left px-3 py-1.5 text-xs text-gray-300
+                      hover:bg-gray-700 rounded-l transition-colors"
+                    title={cmd.description}
+                  >
+                    {cmd.name}
+                  </button>
+                  {getPortForDevice(device.id) && (
+                    <button
+                      onClick={() => {
+                        const event: MidiEvent = {
+                          id: 'send-now',
+                          type: 'device-command',
+                          deviceId: device.id,
+                          commandId: cmd.id,
+                          position: { bar: 1, beat: 1, tick: 0 },
+                          label: cmd.name,
+                          parameters: {}
+                        }
+                        sendNow(device.id, event)
+                      }}
+                      className="px-1.5 py-1.5 text-gray-500 hover:text-green-400 hover:bg-gray-700 rounded-r
+                        opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Send now"
+                    >
+                      <svg viewBox="0 0 16 16" className="w-3 h-3 fill-current">
+                        <path d="M1.5 1.75a.75.75 0 011.06-.06l11.5 10.5a.75.75 0 01-.06 1.12l-11.5-1.5a.75.75 0 01-.36-1.3l4.5-2.75-4.5-2.75a.75.75 0 01-.08-1.22z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
