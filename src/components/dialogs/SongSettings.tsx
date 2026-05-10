@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
+import { useMidiOutputStore } from '../../stores/midi-output-store'
 import { getBuiltInProfiles } from '../../engine/device-protocol'
 import type { Preset, Scene } from '../../types/device'
 
@@ -76,6 +77,14 @@ export function SongSettings() {
     }
     handleUpdatePreset(deviceId, presetId, { scenes })
   }
+
+  const availablePorts = useMidiOutputStore((s) => s.availablePorts)
+  const devicePortMap = useMidiOutputStore((s) => s.devicePortMap)
+  const connectionStatus = useMidiOutputStore((s) => s.connectionStatus)
+  const errorMessage = useMidiOutputStore((s) => s.errorMessage)
+  const setDevicePort = useMidiOutputStore((s) => s.setDevicePort)
+  const clearDevicePort = useMidiOutputStore((s) => s.clearDevicePort)
+  const refreshPorts = useMidiOutputStore((s) => s.refreshPorts)
 
   const profiles = getBuiltInProfiles()
 
@@ -394,6 +403,69 @@ export function SongSettings() {
                 Add
               </button>
             </div>
+          </div>
+
+          {/* MIDI Output */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs text-gray-400">
+                MIDI Output
+                {connectionStatus === 'connected' && (
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 ml-2 align-middle" title="MIDI connected" />
+                )}
+                {connectionStatus === 'error' && (
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 ml-2 align-middle" title={errorMessage ?? 'MIDI error'} />
+                )}
+                {connectionStatus === 'disconnected' && (
+                  <span className="inline-block w-2 h-2 rounded-full bg-gray-500 ml-2 align-middle" title="MIDI not initialized" />
+                )}
+              </label>
+              <button
+                onClick={refreshPorts}
+                className="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded hover:bg-blue-900/30"
+              >
+                Refresh Ports
+              </button>
+            </div>
+
+            {connectionStatus === 'error' && (
+              <p className="text-[10px] text-red-400 mb-2">{errorMessage}</p>
+            )}
+
+            {connectionStatus === 'connected' && devices.length > 0 && (
+              <div className="space-y-1.5">
+                {devices.map((device) => (
+                  <div key={device.id} className="flex items-center gap-2 bg-gray-900 rounded px-3 py-2 border border-gray-700/50">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: device.color }}
+                    />
+                    <span className="text-xs text-gray-300 flex-1 truncate">{device.name}</span>
+                    <select
+                      value={devicePortMap[device.id] ?? ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setDevicePort(device.id, e.target.value)
+                        } else {
+                          clearDevicePort(device.id)
+                        }
+                      }}
+                      className="bg-gray-800 text-xs text-gray-200 rounded px-2 py-1
+                        border border-gray-700 focus:border-blue-500 focus:outline-none max-w-[200px]"
+                    >
+                      <option value="">None</option>
+                      {availablePorts.map((port) => (
+                        <option key={port.id} value={port.id}>{port.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {connectionStatus === 'connected' && devices.length === 0 && (
+              <p className="text-[10px] text-gray-600">Add devices above to map them to MIDI output ports.</p>
+            )}
           </div>
         </div>
 

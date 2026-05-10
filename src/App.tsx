@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Toolbar } from './components/layout/Toolbar'
 import { StatusBar } from './components/layout/StatusBar'
 import { Timeline } from './components/timeline/Timeline'
@@ -7,8 +8,15 @@ import { SongSettings } from './components/dialogs/SongSettings'
 import { SetlistManager } from './components/dialogs/SetlistManager'
 import { HelpDialog } from './components/dialogs/HelpDialog'
 import { useUIStore } from './stores/ui-store'
+import { useMidiOutputStore } from './stores/midi-output-store'
+import { useMidiPlayback } from './hooks/useMidiPlayback'
 
 export function App() {
+  useEffect(() => {
+    useMidiOutputStore.getState().initialize()
+  }, [])
+
+  useMidiPlayback()
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const songSettingsOpen = useUIStore((s) => s.songSettingsOpen)
   const setlistOpen = useUIStore((s) => s.setlistOpen)
