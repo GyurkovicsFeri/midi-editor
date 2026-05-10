@@ -55,7 +55,7 @@ export function Timeline() {
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault()
-      if (e.metaKey || e.ctrlKey) {
+      if (e.altKey) {
         const delta = e.deltaY > 0 ? -0.1 : 0.1
         setZoom(zoom + delta)
       } else {
