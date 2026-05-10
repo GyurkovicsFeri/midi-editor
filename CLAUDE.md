@@ -332,7 +332,7 @@ File extension: `.midiproj`. Format version 2 is a **ZIP archive** containing:
 | Cmd+A | Select all events | Timeline.tsx |
 | Cmd+C | Copy selected events | Timeline.tsx |
 | Cmd+V | Paste at current bar | Timeline.tsx |
-| Cmd+Scroll | Zoom in/out | Timeline.tsx |
+| Alt+Scroll | Zoom in/out | Timeline.tsx |
 
 ---
 

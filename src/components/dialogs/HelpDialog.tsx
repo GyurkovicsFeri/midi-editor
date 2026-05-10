@@ -12,7 +12,7 @@ const SHORTCUTS = [
   { key: 'Cmd+A', action: 'Select all events' },
   { key: 'Cmd+C', action: 'Copy selected events' },
   { key: 'Cmd+V', action: 'Paste at current bar' },
-  { key: 'Cmd+Scroll', action: 'Zoom in / out' },
+  { key: 'Alt+Scroll', action: 'Zoom in / out' },
   { key: '?', action: 'Open this help dialog' },
 ]
 
@@ -165,7 +165,7 @@ export function HelpDialog() {
           <section>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Timeline Controls</h3>
             <ul className="space-y-1.5 text-gray-400">
-              <li><span className="text-gray-200">Zoom:</span> Cmd+Scroll over the timeline, or use the Zoom control in the toolbar.</li>
+              <li><span className="text-gray-200">Zoom:</span> Alt+Scroll over the timeline, or use the Zoom control in the toolbar.</li>
               <li><span className="text-gray-200">Scroll:</span> Scroll horizontally over the timeline to navigate bars.</li>
               <li><span className="text-gray-200">Snap mode:</span> Choose Bar, Beat, or Off from the Snap control. Affects where events snap when placed or dragged.</li>
               <li><span className="text-gray-200">Seek:</span> Click or drag on the ruler to move the playhead.</li>
