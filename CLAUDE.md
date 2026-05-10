@@ -258,23 +258,18 @@ Other QC CCs: `CC#44` Tap Tempo, `CC#45` Tuner, `CC#46` Gig View.
 
 ## Darkglass Alpha Omega Photon MIDI Protocol
 
-CC assignments are **user-configurable** in Darkglass Suite. The built-in profile uses the CC#20–29 range (undefined in General MIDI). The bassist must enter these in Darkglass Suite to match.
+CC assignments are **user-configurable** in Darkglass Suite. The bassist must enter these in Darkglass Suite to match.
 
 | CC# | Control | Values |
 |-----|---------|--------|
-| 20 | Bypass/Engage | 0 = bypass, 127 = active |
 | 21 | Drive | 0–127 |
-| 22 | Blend | 0–127 |
-| 23 | Bass EQ | 0–127 (64 = flat) |
-| 24 | Mid EQ | 0–127 (64 = flat) |
-| 25 | Treble EQ | 0–127 (64 = flat) |
-| 26 | Master Level | 0–127 |
-| 27 | Compression | 0–127 |
-| 28 | Distortion Mode | 0 = Alpha, 127 = Omega |
-| 29 | Cab Sim | 0 = off, 127 = on |
+| 22 | Alpha-Omega Mix | 0–127 |
+| 23–28 | EQ Slider 1–6 | 0–127 (6-band EQ) |
+| 29 | Dist. Blend | 0–127 |
 
-**Preset recall** — single PC message:
+**Preset recall & tuner** — single PC message:
 - `PC 0–5` → Presets A–F (separate commands per preset in the profile, each with hardcoded `msg.program`)
+- `PC 6` → Tuner toggle
 
 ---
 
