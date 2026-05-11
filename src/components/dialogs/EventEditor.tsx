@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { getProfile } from '../../engine/device-protocol'
 import type { MidiEvent } from '../../types/midi'
+import { resolveEventColor } from '../../types/device'
 import { isSweepCommand, EASING_LABELS, applyEasing } from '../../engine/sweep'
 
 interface EventEditorProps {
@@ -23,19 +24,23 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
   const [beat, setBeat] = useState(event?.position.beat ?? 1)
   const [commandId, setCommandId] = useState(event?.commandId ?? '')
   const [label, setLabel] = useState(event?.label ?? '')
+  const [eventColor, setEventColor] = useState(
+    device ? resolveEventColor(event?.commandId ?? '', device, event?.parameters?.scene) : (event?.color ?? '#3b82f6')
+  )
   const [params, setParams] = useState<Record<string, number>>(
     event?.parameters ?? {}
   )
 
   useEffect(() => {
-    if (event) {
+    if (event && device) {
       setBar(event.position.bar)
       setBeat(event.position.beat)
       setCommandId(event.commandId ?? '')
       setLabel(event.label)
+      setEventColor(resolveEventColor(event.commandId ?? '', device, event.parameters?.scene))
       setParams(event.parameters ?? {})
     }
-  }, [event])
+  }, [event, device])
 
   if (!event || !device || !profile) return null
 
@@ -51,6 +56,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
       position: { bar, beat, tick: 0 },
       commandId,
       label: finalLabel,
+      color: eventColor,
       parameters: params
     })
     onClose()
@@ -78,7 +84,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <div
               className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: device.color }}
+              style={{ backgroundColor: eventColor }}
             />
             <span>{device.name}</span>
             <span className="text-gray-600">Ch{device.midiChannel}</span>
@@ -145,6 +151,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                   } else {
                     setLabel(newCmd.name)
                   }
+                  setEventColor(resolveEventColor(newId, device, newParams.scene))
                 }
               }}
               className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
@@ -198,22 +205,23 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                     onChange={(e) => {
                       const sceneNum = Number(e.target.value)
                       setParams((prev) => ({ ...prev, scene: sceneNum }))
-                      // If any preset has a named scene, update label
                       const sceneLetters = ['A','B','C','D','E','F','G','H']
                       const letter = sceneLetters[sceneNum - 1] ?? String(sceneNum)
                       const namedScene = device.presets.flatMap((p) => p.scenes)
                         .find((s) => s.sceneNumber === sceneNum)
                       setLabel(namedScene ? `Scene ${letter}: ${namedScene.name}` : `Scene ${letter}`)
+                      setEventColor(resolveEventColor('qc-scene', device, sceneNum))
                     }}
                     className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
                       border border-gray-700 focus:border-blue-500 focus:outline-none"
                   >
                     {['A','B','C','D','E','F','G','H'].map((letter, i) => {
                       const sceneNum = i + 1
+                      const sceneColor = resolveEventColor('qc-scene', device, sceneNum)
                       const named = device.presets.flatMap((p) => p.scenes)
                         .find((s) => s.sceneNumber === sceneNum)
                       return (
-                        <option key={letter} value={sceneNum}>
+                        <option key={letter} value={sceneNum} style={{ color: sceneColor }}>
                           {letter}{named ? ` — ${named.name}` : ''}
                         </option>
                       )
@@ -224,11 +232,11 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                 <div className="space-y-3">
                   {/* Start / End value sliders */}
                   {(['startValue', 'endValue'] as const).map((paramName) => {
-                    const label = paramName === 'startValue' ? 'Start (Heel 0 → Toe 127)' : 'End (Heel 0 → Toe 127)'
+                    const sliderLabel = paramName === 'startValue' ? 'Start (Heel 0 → Toe 127)' : 'End (Heel 0 → Toe 127)'
                     const val = params[paramName] ?? (paramName === 'startValue' ? 0 : 127)
                     return (
                       <div key={paramName}>
-                        <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                        <label className="block text-xs text-gray-400 mb-1">{sliderLabel}</label>
                         <div className="flex items-center gap-2">
                           <input
                             type="range"
@@ -268,59 +276,127 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                     </button>
                   </div>
 
+                  {/* Interactive curve preview */}
+                  {(() => {
+                    const svgW = 370
+                    const svgH = 120
+                    const pad = { top: 12, right: 12, bottom: 20, left: 32 }
+                    const plotW = svgW - pad.left - pad.right
+                    const plotH = svgH - pad.top - pad.bottom
+                    const startVal = params.startValue ?? 0
+                    const endVal = params.endValue ?? 127
+                    const easing = params.easingType ?? 0
+                    const startY = pad.top + plotH - (startVal / 127) * plotH
+                    const endY = pad.top + plotH - (endVal / 127) * plotH
+                    const points = Array.from({ length: 41 }, (_, i) => {
+                      const t = i / 40
+                      const eased = applyEasing(t, easing)
+                      const val = startVal + (endVal - startVal) * eased
+                      const x = pad.left + t * plotW
+                      const y = pad.top + plotH - (val / 127) * plotH
+                      return `${x},${y}`
+                    }).join(' ')
+                    const fillPoints = `${pad.left},${pad.top + plotH} ${points} ${pad.left + plotW},${pad.top + plotH}`
+                    const dur = params.durationBeats ?? 4
+                    return (
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Sweep curve</label>
+                        <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full rounded border border-gray-700 bg-gray-900/50">
+                          {/* Grid lines */}
+                          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+                            <line key={`h${f}`} x1={pad.left} y1={pad.top + f * plotH} x2={pad.left + plotW} y2={pad.top + f * plotH} stroke="#374151" strokeWidth="0.5" />
+                          ))}
+                          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+                            <line key={`v${f}`} x1={pad.left + f * plotW} y1={pad.top} x2={pad.left + f * plotW} y2={pad.top + plotH} stroke="#374151" strokeWidth="0.5" />
+                          ))}
+                          {/* Start/end value dashed lines */}
+                          <line x1={pad.left} y1={startY} x2={pad.left + plotW} y2={startY} stroke="#60a5fa" strokeWidth="0.5" strokeDasharray="4 3" opacity="0.5" />
+                          <line x1={pad.left} y1={endY} x2={pad.left + plotW} y2={endY} stroke="#60a5fa" strokeWidth="0.5" strokeDasharray="4 3" opacity="0.5" />
+                          {/* Filled area under curve */}
+                          <polygon points={fillPoints} fill="#3b82f6" opacity="0.12" />
+                          {/* Curve */}
+                          <polyline fill="none" stroke="#3b82f6" strokeWidth="2" points={points} />
+                          {/* Y-axis labels */}
+                          <text x={pad.left - 4} y={pad.top + 4} textAnchor="end" fill="#9ca3af" fontSize="9">127</text>
+                          <text x={pad.left - 4} y={pad.top + plotH + 1} textAnchor="end" fill="#9ca3af" fontSize="9">0</text>
+                          {/* X-axis labels */}
+                          <text x={pad.left} y={svgH - 4} textAnchor="start" fill="#9ca3af" fontSize="9">0</text>
+                          <text x={pad.left + plotW} y={svgH - 4} textAnchor="end" fill="#9ca3af" fontSize="9">{dur} beats</text>
+                          {/* Start/end value dots */}
+                          <circle cx={pad.left} cy={startY} r="3" fill="#3b82f6" />
+                          <circle cx={pad.left + plotW} cy={endY} r="3" fill="#3b82f6" />
+                        </svg>
+                      </div>
+                    )
+                  })()}
+
                   {/* Duration */}
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Duration (beats)</label>
+                    <label className="block text-xs text-gray-400 mb-1">Duration</label>
+                    {/* Musical duration presets */}
+                    {(() => {
+                      const beatsPerBar = song.timeSignature[0]
+                      const maxBeats = 4 * beatsPerBar
+                      const presets: Array<{ label: string; beats: number }> = [
+                        { label: '1/16', beats: 0.25 },
+                        { label: '1/8', beats: 0.5 },
+                        { label: '1/4', beats: 1 },
+                        { label: '1/2', beats: 2 },
+                        { label: '1', beats: 4 },
+                        { label: '1 bar', beats: beatsPerBar },
+                        { label: '2 bars', beats: 2 * beatsPerBar },
+                        { label: '4 bars', beats: 4 * beatsPerBar },
+                      ]
+                      const unique = presets.filter((p, i, arr) =>
+                        p.beats <= maxBeats && arr.findIndex((q) => q.beats === p.beats) === i
+                      )
+                      const currentDur = params.durationBeats ?? 4
+                      return (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {unique.map((p) => (
+                            <button
+                              key={p.label}
+                              onClick={() => setParams((prev) => ({ ...prev, durationBeats: p.beats }))}
+                              className={`px-2 py-0.5 text-xs rounded ${
+                                currentDur === p.beats
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setParams((prev) => ({ ...prev, durationBeats: Math.max(1, (prev.durationBeats ?? 4) - 1) }))}
-                        className="w-7 h-7 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm"
-                      >−</button>
                       <input
                         type="number"
-                        min={1}
-                        max={64}
+                        min={0.25}
+                        max={4 * song.timeSignature[0]}
+                        step={0.25}
                         value={params.durationBeats ?? 4}
-                        onChange={(e) => setParams((prev) => ({ ...prev, durationBeats: Math.max(1, Math.min(64, Number(e.target.value))) }))}
-                        className="w-16 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1 text-center
+                        onChange={(e) => setParams((prev) => ({ ...prev, durationBeats: Math.max(0.25, Math.min(4 * song.timeSignature[0], Number(e.target.value))) }))}
+                        className="w-20 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1 text-center
                           border border-gray-700 focus:border-blue-500 focus:outline-none"
                       />
-                      <button
-                        onClick={() => setParams((prev) => ({ ...prev, durationBeats: Math.min(64, (prev.durationBeats ?? 4) + 1) }))}
-                        className="w-7 h-7 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm"
-                      >+</button>
+                      <span className="text-xs text-gray-500">beats</span>
                     </div>
                   </div>
 
                   {/* Easing */}
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Easing</label>
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={params.easingType ?? 0}
-                        onChange={(e) => setParams((prev) => ({ ...prev, easingType: Number(e.target.value) }))}
-                        className="flex-1 bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
-                          border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      >
-                        {EASING_LABELS.map((label, i) => (
-                          <option key={i} value={i}>{label}</option>
-                        ))}
-                      </select>
-                      {/* Easing curve preview */}
-                      <svg viewBox="0 0 40 20" className="w-20 h-10 flex-shrink-0">
-                        <rect x="0" y="0" width="40" height="20" fill="none" stroke="#4b5563" strokeWidth="0.5" rx="2" />
-                        <polyline
-                          fill="none"
-                          stroke="#3b82f6"
-                          strokeWidth="1.5"
-                          points={Array.from({ length: 21 }, (_, i) => {
-                            const t = i / 20
-                            const v = applyEasing(t, params.easingType ?? 0)
-                            return `${2 + t * 36},${18 - v * 16}`
-                          }).join(' ')}
-                        />
-                      </svg>
-                    </div>
+                    <select
+                      value={params.easingType ?? 0}
+                      onChange={(e) => setParams((prev) => ({ ...prev, easingType: Number(e.target.value) }))}
+                      className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
+                        border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    >
+                      {EASING_LABELS.map((easingLabel, i) => (
+                        <option key={i} value={i}>{easingLabel}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               ) : (

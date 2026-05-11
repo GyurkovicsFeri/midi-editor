@@ -4,6 +4,7 @@ import { useUIStore } from '../../stores/ui-store'
 import { useMidiOutputStore } from '../../stores/midi-output-store'
 import { getBuiltInProfiles } from '../../engine/device-protocol'
 import type { Preset, Scene } from '../../types/device'
+import { DEFAULT_SCENE_COLORS } from '../../types/device'
 
 const SCENE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -59,21 +60,27 @@ export function SongSettings() {
     setExpandedPresetIds((prev) => { const next = new Set(prev); next.delete(presetId); return next })
   }
 
-  const handleUpdateScene = (deviceId: string, presetId: string, sceneNumber: number, name: string) => {
+  const handleUpdateScene = (deviceId: string, presetId: string, sceneNumber: number, changes: { name?: string; color?: string }) => {
     const device = devices.find((d) => d.id === deviceId)
     if (!device) return
     const preset = device.presets.find((p) => p.id === presetId)
     if (!preset) return
     let scenes: Scene[]
-    if (name.trim() === '') {
+    const existing = preset.scenes.find((s) => s.sceneNumber === sceneNumber)
+    if (changes.name !== undefined && changes.name.trim() === '' && !changes.color) {
       scenes = preset.scenes.filter((s) => s.sceneNumber !== sceneNumber)
+    } else if (existing) {
+      const update: Partial<Scene> = {}
+      if (changes.name !== undefined) update.name = changes.name.trim()
+      if (changes.color !== undefined) update.color = changes.color
+      scenes = preset.scenes.map((s) => s.sceneNumber === sceneNumber ? { ...s, ...update } : s)
     } else {
-      const existing = preset.scenes.find((s) => s.sceneNumber === sceneNumber)
-      if (existing) {
-        scenes = preset.scenes.map((s) => s.sceneNumber === sceneNumber ? { ...s, name: name.trim() } : s)
-      } else {
-        scenes = [...preset.scenes, { id: crypto.randomUUID(), name: name.trim(), sceneNumber }]
-      }
+      scenes = [...preset.scenes, {
+        id: crypto.randomUUID(),
+        name: changes.name?.trim() ?? '',
+        sceneNumber,
+        color: changes.color ?? DEFAULT_SCENE_COLORS[sceneNumber - 1]
+      }]
     }
     handleUpdatePreset(deviceId, presetId, { scenes })
   }
@@ -293,13 +300,20 @@ export function SongSettings() {
                                           {SCENE_LETTERS.map((letter, i) => {
                                             const sceneNum = i + 1
                                             const scene = preset.scenes.find((s) => s.sceneNumber === sceneNum)
+                                            const sceneColor = scene?.color ?? DEFAULT_SCENE_COLORS[i]
                                             return (
                                               <div key={letter} className="flex items-center gap-1">
                                                 <span className="text-[10px] text-gray-500 w-4 shrink-0">{letter}</span>
                                                 <input
+                                                  type="color"
+                                                  value={sceneColor}
+                                                  onChange={(e) => handleUpdateScene(device.id, preset.id, sceneNum, { color: e.target.value })}
+                                                  className="w-4 h-4 bg-transparent border-0 rounded cursor-pointer shrink-0 p-0"
+                                                />
+                                                <input
                                                   type="text"
                                                   value={scene?.name ?? ''}
-                                                  onChange={(e) => handleUpdateScene(device.id, preset.id, sceneNum, e.target.value)}
+                                                  onChange={(e) => handleUpdateScene(device.id, preset.id, sceneNum, { name: e.target.value })}
                                                   placeholder="—"
                                                   className="flex-1 bg-gray-900 text-[10px] text-gray-300 rounded px-1.5 py-0.5
                                                     border border-gray-700 focus:border-blue-500 focus:outline-none min-w-0"

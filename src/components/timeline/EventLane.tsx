@@ -1,7 +1,16 @@
+import { useState, useMemo } from 'react'
 import type { MidiEvent, MusicalPosition } from '../../types/midi'
 import type { MidiDevice } from '../../types/device'
+import { resolveEventColor } from '../../types/device'
 import type { SnapMode } from '../../types/timeline'
 import { EventBlock } from './EventBlock'
+
+interface DragPayload {
+  deviceId: string
+  commandId: string
+  label: string
+  color: string
+}
 
 interface EventLaneProps {
   device: MidiDevice
@@ -20,6 +29,7 @@ interface EventLaneProps {
   onEventDragEnd?: (id: string) => void
   onLaneDoubleClick: (deviceId: string, bar: number) => void
   onLaneContextMenu: (deviceId: string, bar: number, x: number, y: number) => void
+  onLaneDrop?: (deviceId: string, bar: number, data: DragPayload) => void
 }
 
 export function EventLane({
@@ -38,9 +48,11 @@ export function EventLane({
   onEventDragStart,
   onEventDragEnd,
   onLaneDoubleClick,
-  onLaneContextMenu
+  onLaneContextMenu,
+  onLaneDrop
 }: EventLaneProps) {
   const pixelsPerBar = pixelsPerBeat * beatsPerBar
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const handleLaneDoubleClick = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -57,6 +69,33 @@ export function EventLane({
     onLaneContextMenu(device.id, bar, e.clientX, e.clientY)
   }
 
+  const isValidDrop = (e: React.DragEvent) =>
+    e.dataTransfer.types.includes(`x-device/${device.id}`)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isValidDrop(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    if (!onLaneDrop) return
+    const raw = e.dataTransfer.getData('application/x-midi-command')
+    if (!raw) return
+    const data: DragPayload = JSON.parse(raw)
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const dropX = e.clientX - rect.left + scrollX
+    const bar = Math.max(1, Math.floor(dropX / pixelsPerBar) + 1)
+    onLaneDrop(device.id, bar, data)
+  }
+
   return (
     <div className="relative h-12 border-b border-gray-700/50 flex">
       <div
@@ -71,9 +110,14 @@ export function EventLane({
         <span className="text-[10px] text-gray-500 ml-auto">Ch{device.midiChannel}</span>
       </div>
       <div
-        className="relative flex-1 overflow-hidden"
+        className={`relative flex-1 overflow-hidden transition-colors ${
+          isDragOver ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-500/30' : ''
+        }`}
         onDoubleClick={handleLaneDoubleClick}
         onContextMenu={handleLaneContextMenu}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         <div
           className="absolute inset-y-0"
@@ -82,7 +126,7 @@ export function EventLane({
           {events.map((event) => (
             <EventBlock
               key={event.id}
-              event={event}
+              event={{ ...event, color: resolveEventColor(event.commandId ?? '', device, event.parameters?.scene) }}
               pixelsPerBeat={pixelsPerBeat}
               beatsPerBar={beatsPerBar}
               isSelected={selectedEventIds.has(event.id)}

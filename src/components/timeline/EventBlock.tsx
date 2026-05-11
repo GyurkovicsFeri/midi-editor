@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import type { MidiEvent, MusicalPosition } from '../../types/midi'
 import { TICKS_PER_BEAT } from '../../types/midi'
-import { isSweepCommand, getSweepDurationBeats } from '../../engine/sweep'
+import { isSweepCommand, getSweepDurationBeats, applyEasing } from '../../engine/sweep'
 
 interface EventBlockProps {
   event: MidiEvent
@@ -124,12 +124,27 @@ export function EventBlock({
       title={`${event.label} — Bar ${event.position.bar}, Beat ${event.position.beat}`}
     >
       {isSweep && (
-        <div
-          className="absolute inset-0 rounded pointer-events-none"
-          style={{
-            background: `linear-gradient(to right, rgba(255,255,255,${(event.parameters?.startValue ?? 0) / 127 * 0.35}), rgba(255,255,255,${(event.parameters?.endValue ?? 127) / 127 * 0.35}))`
-          }}
-        />
+        <svg className="absolute inset-0 w-full h-full rounded pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {(() => {
+            const startVal = (event.parameters?.startValue ?? 0) / 127
+            const endVal = (event.parameters?.endValue ?? 127) / 127
+            const easing = event.parameters?.easingType ?? 0
+            const steps = 24
+            const points = Array.from({ length: steps + 1 }, (_, i) => {
+              const t = i / steps
+              const eased = applyEasing(t, easing)
+              const v = startVal + (endVal - startVal) * eased
+              return `${t * 100},${(1 - v) * 100}`
+            }).join(' ')
+            const fillPoints = `0,100 ${points} 100,100`
+            return (
+              <>
+                <polygon points={fillPoints} fill="white" opacity="0.12" />
+                <polyline fill="none" stroke="white" strokeWidth="1.5" opacity="0.5" vectorEffect="non-scaling-stroke" points={points} />
+              </>
+            )
+          })()}
+        </svg>
       )}
       <span className="truncate text-white drop-shadow-sm relative z-10">{event.label}</span>
       {isSweep && width > 60 && (

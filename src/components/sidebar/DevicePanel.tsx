@@ -2,6 +2,7 @@ import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { useMidiOutputStore } from '../../stores/midi-output-store'
 import { getProfile } from '../../engine/device-protocol'
+import { resolveEventColor } from '../../types/device'
 import type { MidiEvent } from '../../types/midi'
 
 export function DevicePanel() {
@@ -20,7 +21,7 @@ export function DevicePanel() {
       commandId,
       position: { bar: 1, beat: 1, tick: 0 },
       label,
-      color: device.color,
+      color: resolveEventColor(commandId, device),
       parameters: {}
     })
   }
@@ -59,9 +60,23 @@ export function DevicePanel() {
               {profile.commands.map((cmd) => (
                 <div key={cmd.id} className="flex items-center group">
                   <button
+                    draggable
                     onClick={() => handleAddCommand(device.id, cmd.id, cmd.name)}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        'application/x-midi-command',
+                        JSON.stringify({
+                          deviceId: device.id,
+                          commandId: cmd.id,
+                          label: cmd.name,
+                          color: resolveEventColor(cmd.id, device)
+                        })
+                      )
+                      e.dataTransfer.setData(`x-device/${device.id}`, '')
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
                     className="flex-1 text-left px-3 py-1.5 text-xs text-gray-300
-                      hover:bg-gray-700 rounded-l transition-colors"
+                      hover:bg-gray-700 rounded-l transition-colors cursor-grab active:cursor-grabbing"
                     title={cmd.description}
                   >
                     {cmd.name}

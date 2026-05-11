@@ -9,16 +9,17 @@ import { Playhead } from './Playhead'
 import { EventLane } from './EventLane'
 import { WaveformLane } from './WaveformLane'
 import { EventEditor } from '../dialogs/EventEditor'
-import { ContextMenu } from '../common/ContextMenu'
+import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import type { MusicalPosition } from '../../types/midi'
 import { TICKS_PER_BEAT } from '../../types/midi'
+import { resolveEventColor } from '../../types/device'
 
 const BASE_PIXELS_PER_BEAT = 40
 
 interface ContextMenuState {
   x: number
   y: number
-  items: Array<{ label: string; onClick: () => void; danger?: boolean }>
+  items: MenuItem[]
 }
 
 export function Timeline() {
@@ -29,6 +30,7 @@ export function Timeline() {
   const moveEvent = useProjectStore((s) => s.moveEvent)
   const moveEvents = useProjectStore((s) => s.moveEvents)
   const deleteEvent = useProjectStore((s) => s.deleteEvent)
+  const updateEvent = useProjectStore((s) => s.updateEvent)
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const addSection = useProjectStore((s) => s.addSection)
   const deleteSection = useProjectStore((s) => s.deleteSection)
@@ -88,23 +90,78 @@ export function Timeline() {
   const handleEventContextMenu = useCallback(
     (id: string, x: number, y: number) => {
       selectEvent(id)
-      setContextMenu({
-        x,
-        y,
-        items: [
-          { label: 'Edit...', onClick: () => setEditingEventId(id) },
-          {
-            label: 'Delete',
-            danger: true,
-            onClick: () => {
-              deleteEvent(id)
-              deselectAll()
+      const event = song.events.find((e) => e.id === id)
+      if (!event) return
+
+      const device = devices.find((d) => d.id === event.deviceId)
+      const profile = device ? getProfile(device.profileId) : undefined
+      const items: MenuItem[] = []
+
+      if (event.commandId === 'qc-scene' && device && profile?.supportsScenes) {
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        items.push({
+          label: 'Set Scene',
+          children: letters.map((letter, i) => {
+            const sceneNum = i + 1
+            const namedScene = device.presets
+              .flatMap((p) => p.scenes)
+              .find((s) => s.sceneNumber === sceneNum)
+            return {
+              label: namedScene ? `${letter} — ${namedScene.name}` : `Scene ${letter}`,
+              disabled: event.parameters?.scene === sceneNum,
+              onClick: () => {
+                updateEvent(id, {
+                  parameters: { ...event.parameters, scene: sceneNum },
+                  label: namedScene
+                    ? `Scene ${letter}: ${namedScene.name}`
+                    : `Scene ${letter}`
+                })
+              }
             }
-          }
-        ]
+          })
+        })
+      }
+
+      if (event.commandId === 'qc-preset' && device && device.presets.length > 0) {
+        items.push({
+          label: 'Set Preset',
+          children: device.presets.map((preset) => ({
+            label: preset.name,
+            disabled:
+              event.parameters?.preset === preset.programNumber &&
+              event.parameters?.bank === preset.bank &&
+              event.parameters?.setlist === preset.setlistIndex,
+            onClick: () => {
+              updateEvent(id, {
+                parameters: {
+                  preset: preset.programNumber,
+                  bank: preset.bank,
+                  setlist: preset.setlistIndex
+                },
+                label: preset.name
+              })
+            }
+          }))
+        })
+      }
+
+      if (items.length > 0) {
+        items.push({ label: '', divider: true })
+      }
+
+      items.push({ label: 'Edit...', onClick: () => setEditingEventId(id) })
+      items.push({
+        label: 'Delete',
+        danger: true,
+        onClick: () => {
+          deleteEvent(id)
+          deselectAll()
+        }
       })
+
+      setContextMenu({ x, y, items })
     },
-    [selectEvent, deleteEvent, deselectAll]
+    [selectEvent, deleteEvent, deselectAll, updateEvent, song.events, devices]
   )
 
   const handleEventDragStart = useCallback(
@@ -184,7 +241,7 @@ export function Timeline() {
         commandId: defaultCommand.id,
         position: { bar, beat: 1, tick: 0 },
         label: defaultCommand.name,
-        color: device.color,
+        color: resolveEventColor(defaultCommand.id, device, params.scene),
         parameters: params
       })
       setEditingEventId(id)
@@ -215,7 +272,7 @@ export function Timeline() {
               commandId: cmd.id,
               position: { bar, beat: 1, tick: 0 },
               label: cmd.name,
-              color: device.color,
+              color: resolveEventColor(cmd.id, device, params.scene),
               parameters: params
             })
           }
@@ -223,6 +280,38 @@ export function Timeline() {
       })
     },
     [devices, addEvent]
+  )
+
+  const handleLaneDrop = useCallback(
+    (
+      deviceId: string,
+      bar: number,
+      data: { commandId: string; label: string; color: string }
+    ) => {
+      const device = devices.find((d) => d.id === deviceId)
+      if (!device) return
+      const profile = getProfile(device.profileId)
+      const command = profile?.commands.find((c) => c.id === data.commandId)
+      const params: Record<string, number> = {}
+      command?.parameters?.forEach((p) => {
+        params[p.name] = p.defaultValue
+      })
+
+      const clampedBar = Math.min(bar, song.totalBars)
+      const id = addEvent({
+        type: 'device-command',
+        deviceId,
+        commandId: data.commandId,
+        position: { bar: clampedBar, beat: 1, tick: 0 },
+        label: data.label,
+        color: data.color,
+        parameters: params
+      })
+      if (command?.parameters && command.parameters.length > 0) {
+        setEditingEventId(id)
+      }
+    },
+    [devices, addEvent, song.totalBars]
   )
 
   const handleAddSection = useCallback(
@@ -356,6 +445,7 @@ export function Timeline() {
                   onEventDragEnd={handleEventDragEnd}
                   onLaneDoubleClick={handleLaneDoubleClick}
                   onLaneContextMenu={handleLaneContextMenu}
+                  onLaneDrop={handleLaneDrop}
                 />
               )
             })

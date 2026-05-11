@@ -84,7 +84,7 @@ export const quadCortexProfile: DeviceProfile = {
       parameters: [
         { name: 'startValue', label: 'Start Value', min: 0, max: 127, defaultValue: 0 },
         { name: 'endValue', label: 'End Value', min: 0, max: 127, defaultValue: 127 },
-        { name: 'durationBeats', label: 'Duration (beats)', min: 1, max: 64, defaultValue: 4 },
+        { name: 'durationBeats', label: 'Duration (beats)', min: 0.25, max: 64, defaultValue: 4 },
         { name: 'easingType', label: 'Easing', min: 0, max: 3, defaultValue: 0 }
       ]
     },
@@ -98,7 +98,7 @@ export const quadCortexProfile: DeviceProfile = {
       parameters: [
         { name: 'startValue', label: 'Start Value', min: 0, max: 127, defaultValue: 0 },
         { name: 'endValue', label: 'End Value', min: 0, max: 127, defaultValue: 127 },
-        { name: 'durationBeats', label: 'Duration (beats)', min: 1, max: 64, defaultValue: 4 },
+        { name: 'durationBeats', label: 'Duration (beats)', min: 0.25, max: 64, defaultValue: 4 },
         { name: 'easingType', label: 'Easing', min: 0, max: 3, defaultValue: 0 }
       ]
     }
