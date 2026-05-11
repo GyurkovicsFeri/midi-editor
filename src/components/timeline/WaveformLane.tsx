@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 
 interface WaveformLaneProps {
@@ -25,6 +25,7 @@ export function WaveformLane({
 }: WaveformLaneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const wavesurferRef = useRef<WaveSurfer | null>(null)
+  const [volume, setVolume] = useState(1)
 
   const secondsPerBeat = 60 / bpm
   const msPerBeat = secondsPerBeat * 1000
@@ -113,6 +114,11 @@ export function WaveformLane({
     }
   }, [isPlaying])
 
+  useEffect(() => {
+    const ws = wavesurferRef.current
+    if (ws) ws.setVolume(volume)
+  }, [volume])
+
   // Seek when currentTimeSeconds changes while not playing
   // (e.g. clicking the ruler or rewinding)
   useEffect(() => {
@@ -142,7 +148,7 @@ export function WaveformLane({
   return (
     <div className="h-[72px] border-b border-gray-700/50 flex">
       {/* Header with offset controls */}
-      <div className="w-36 shrink-0 flex flex-col justify-center px-2 gap-1 border-r border-gray-700 bg-gray-800/50">
+      <div className="w-36 shrink-0 flex flex-col justify-center px-2 gap-0.5 border-r border-gray-700 bg-gray-800/50">
         <span className="text-xs text-gray-400">Audio offset (beats)</span>
         <div className="flex items-center gap-1">
           <button
@@ -164,6 +170,23 @@ export function WaveformLane({
             className="text-[10px] text-gray-500 hover:text-gray-300 px-0.5 leading-none"
             title="Shift right ½ beat"
           >+</button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setVolume(volume > 0 ? 0 : 1)}
+            className="text-[10px] text-gray-500 hover:text-gray-300 leading-none shrink-0"
+            title={volume > 0 ? 'Mute' : 'Unmute'}
+          >{volume > 0 ? '\u{1F50A}' : '\u{1F507}'}</button>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            className="w-full h-1 accent-blue-500 cursor-pointer"
+            title={`Volume: ${Math.round(volume * 100)}%`}
+          />
         </div>
       </div>
 

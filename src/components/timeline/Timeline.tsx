@@ -11,6 +11,7 @@ import { WaveformLane } from './WaveformLane'
 import { EventEditor } from '../dialogs/EventEditor'
 import { ContextMenu } from '../common/ContextMenu'
 import type { MusicalPosition } from '../../types/midi'
+import { TICKS_PER_BEAT } from '../../types/midi'
 
 const BASE_PIXELS_PER_BEAT = 40
 
@@ -26,6 +27,7 @@ export function Timeline() {
   const devices = useProjectStore((s) => s.setlistDevices())
   const addEvent = useProjectStore((s) => s.addEvent)
   const moveEvent = useProjectStore((s) => s.moveEvent)
+  const moveEvents = useProjectStore((s) => s.moveEvents)
   const deleteEvent = useProjectStore((s) => s.deleteEvent)
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const addSection = useProjectStore((s) => s.addSection)
@@ -43,6 +45,7 @@ export function Timeline() {
 
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const dragOriginsRef = useRef<Map<string, MusicalPosition> | null>(null)
 
   const pixelsPerBeat = BASE_PIXELS_PER_BEAT * zoom
   const beatsPerBar = song.timeSignature[0]
@@ -104,12 +107,63 @@ export function Timeline() {
     [selectEvent, deleteEvent, deselectAll]
   )
 
-  const handleEventDragMove = useCallback(
-    (id: string, newPosition: MusicalPosition) => {
-      moveEvent(id, newPosition)
+  const handleEventDragStart = useCallback(
+    (draggedId: string) => {
+      if (!selectedEventIds.has(draggedId) || selectedEventIds.size <= 1) {
+        dragOriginsRef.current = null
+        return
+      }
+      const origins = new Map<string, MusicalPosition>()
+      for (const id of selectedEventIds) {
+        const ev = song.events.find((e) => e.id === id)
+        if (ev) origins.set(id, { ...ev.position })
+      }
+      dragOriginsRef.current = origins
     },
-    [moveEvent]
+    [selectedEventIds, song.events]
   )
+
+  const handleEventDragMove = useCallback(
+    (draggedId: string, newPosition: MusicalPosition) => {
+      const origins = dragOriginsRef.current
+      if (!origins || !origins.has(draggedId)) {
+        moveEvent(draggedId, newPosition)
+        return
+      }
+
+      const toTicks = (p: MusicalPosition) =>
+        (p.bar - 1) * beatsPerBar * TICKS_PER_BEAT +
+        (p.beat - 1) * TICKS_PER_BEAT +
+        p.tick
+
+      const deltaTicks = toTicks(newPosition) - toTicks(origins.get(draggedId)!)
+
+      let minOrigTicks = Infinity
+      for (const [, origPos] of origins) {
+        minOrigTicks = Math.min(minOrigTicks, toTicks(origPos))
+      }
+      const clampedDelta = Math.max(-minOrigTicks, deltaTicks)
+
+      const ticksPerBar = beatsPerBar * TICKS_PER_BEAT
+      const moves: Array<{ eventId: string; newPosition: MusicalPosition }> = []
+
+      for (const [id, origPos] of origins) {
+        const newTicks = toTicks(origPos) + clampedDelta
+        const bar = Math.floor(newTicks / ticksPerBar) + 1
+        const remaining = newTicks % ticksPerBar
+        const beat = Math.floor(remaining / TICKS_PER_BEAT) + 1
+        const tick = remaining % TICKS_PER_BEAT
+        moves.push({ eventId: id, newPosition: { bar, beat, tick } })
+      }
+
+      moveEvents(moves)
+    },
+    [moveEvent, moveEvents, beatsPerBar]
+  )
+
+  const handleEventDragEnd = useCallback(() => {
+    dragOriginsRef.current = null
+  }, [])
 
   const handleLaneDoubleClick = useCallback(
     (deviceId: string, bar: number) => {
@@ -298,6 +352,8 @@ export function Timeline() {
                   onEventDoubleClick={handleEventDoubleClick}
                   onEventContextMenu={handleEventContextMenu}
                   onEventDragMove={handleEventDragMove}
+                  onEventDragStart={handleEventDragStart}
+                  onEventDragEnd={handleEventDragEnd}
                   onLaneDoubleClick={handleLaneDoubleClick}
                   onLaneContextMenu={handleLaneContextMenu}
                 />

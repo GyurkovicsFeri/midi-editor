@@ -12,6 +12,8 @@ interface EventBlockProps {
   onDoubleClick: (id: string) => void
   onContextMenu: (id: string, x: number, y: number) => void
   onDragMove: (id: string, newPosition: MusicalPosition) => void
+  onDragStart?: (id: string) => void
+  onDragEnd?: (id: string) => void
   snapMode: 'bar' | 'beat' | 'off'
 }
 
@@ -24,6 +26,8 @@ export function EventBlock({
   onDoubleClick,
   onContextMenu,
   onDragMove,
+  onDragStart,
+  onDragEnd,
   snapMode
 }: EventBlockProps) {
   const x =
@@ -51,7 +55,10 @@ export function EventBlock({
       const handleMouseMove = (me: MouseEvent) => {
         const dx = me.clientX - startX
         if (Math.abs(dx) < 3 && !moved) return
-        moved = true
+        if (!moved) {
+          moved = true
+          onDragStart?.(event.id)
+        }
 
         const newX = origX + dx
         const totalBeats = newX / pixelsPerBeat
@@ -82,6 +89,8 @@ export function EventBlock({
         document.removeEventListener('mouseup', handleMouseUp)
         if (!moved) {
           onClick(event.id, me.shiftKey || me.metaKey)
+        } else {
+          onDragEnd?.(event.id)
         }
         dragStartRef.current = null
       }
@@ -89,7 +98,7 @@ export function EventBlock({
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [x, pixelsPerBeat, beatsPerBar, snapMode, event.id, onClick, onDragMove]
+    [x, pixelsPerBeat, beatsPerBar, snapMode, event.id, onClick, onDragMove, onDragStart, onDragEnd]
   )
 
   return (

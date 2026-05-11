@@ -45,6 +45,7 @@ interface ProjectState {
   addEvent: (event: Omit<MidiEvent, 'id'>) => string
   updateEvent: (eventId: string, changes: Partial<MidiEvent>) => void
   moveEvent: (eventId: string, newPosition: MusicalPosition) => void
+  moveEvents: (moves: Array<{ eventId: string; newPosition: MusicalPosition }>) => void
   deleteEvent: (eventId: string) => void
   deleteEvents: (eventIds: string[]) => void
 
@@ -173,6 +174,17 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         if (!song) return
         const event = song.events.find((e) => e.id === eventId)
         if (event) event.position = newPosition
+      })
+    },
+
+    moveEvents: (moves) => {
+      mutate((project) => {
+        const song = project.songs.find((s) => s.id === project.activeSongId)
+        if (!song) return
+        for (const { eventId, newPosition } of moves) {
+          const event = song.events.find((e) => e.id === eventId)
+          if (event) event.position = newPosition
+        }
       })
     },
 

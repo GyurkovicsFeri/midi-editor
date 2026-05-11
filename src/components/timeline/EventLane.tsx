@@ -16,6 +16,8 @@ interface EventLaneProps {
   onEventDoubleClick: (id: string) => void
   onEventContextMenu: (id: string, x: number, y: number) => void
   onEventDragMove: (id: string, newPosition: MusicalPosition) => void
+  onEventDragStart?: (id: string) => void
+  onEventDragEnd?: (id: string) => void
   onLaneDoubleClick: (deviceId: string, bar: number) => void
   onLaneContextMenu: (deviceId: string, bar: number, x: number, y: number) => void
 }
@@ -33,6 +35,8 @@ export function EventLane({
   onEventDoubleClick,
   onEventContextMenu,
   onEventDragMove,
+  onEventDragStart,
+  onEventDragEnd,
   onLaneDoubleClick,
   onLaneContextMenu
 }: EventLaneProps) {
@@ -87,6 +91,8 @@ export function EventLane({
               onDoubleClick={onEventDoubleClick}
               onContextMenu={onEventContextMenu}
               onDragMove={onEventDragMove}
+              onDragStart={onEventDragStart}
+              onDragEnd={onEventDragEnd}
             />
           ))}
         </div>
