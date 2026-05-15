@@ -10,6 +10,7 @@ import { HelpDialog } from './components/dialogs/HelpDialog'
 import { useUIStore } from './stores/ui-store'
 import { useMidiOutputStore } from './stores/midi-output-store'
 import { useMidiPlayback } from './hooks/useMidiPlayback'
+import { useMetronome } from './hooks/useMetronome'
 
 export function App() {
   useEffect(() => {
@@ -17,6 +18,7 @@ export function App() {
   }, [])
 
   useMidiPlayback()
+  useMetronome()
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const songSettingsOpen = useUIStore((s) => s.songSettingsOpen)
   const setlistOpen = useUIStore((s) => s.setlistOpen)

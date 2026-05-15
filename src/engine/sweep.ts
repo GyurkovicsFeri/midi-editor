@@ -6,7 +6,10 @@ import { positionToTotalTicks } from './clock'
 const STEPS_PER_BEAT = 24
 const SCALE_FACTOR = 128 / TICKS_PER_BEAT
 
-const SWEEP_COMMAND_IDS = new Set(['qc-exp-pedal-1', 'qc-exp-pedal-2'])
+const SWEEP_COMMAND_IDS = new Set([
+  'qc-exp-pedal-1', 'qc-exp-pedal-2',
+  'helix-lt-exp-1', 'helix-lt-exp-2'
+])
 
 export const EASING_LABELS = ['Linear', 'Ease In', 'Ease Out', 'Ease In-Out']
 

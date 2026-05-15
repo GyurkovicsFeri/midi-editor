@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useTransportStore } from '../../stores/transport-store'
 import { useUIStore } from '../../stores/ui-store'
@@ -37,7 +37,7 @@ export function Timeline() {
   const isPlaying = useTransportStore((s) => s.isPlaying)
   const currentTime = useTransportStore((s) => s.currentTimeSeconds)
   const setCurrentTime = useTransportStore((s) => s.setCurrentTime)
-  const { zoom, scrollX, scrollY, setScrollX, setZoom, selectedEventIds, snapMode } =
+  const { zoom, scrollX, scrollY, setScrollX, setZoom, selectedEventIds, snapMode, followPlayback } =
     useUIStore()
   const selectEvent = useUIStore((s) => s.selectEvent)
   const selectAll = useUIStore((s) => s.selectAll)
@@ -56,6 +56,20 @@ export function Timeline() {
   const laneHeight = 48
   const waveformHeight = 72
   const lanesHeight = Math.max(200, devices.length * laneHeight + waveformHeight)
+
+  useEffect(() => {
+    if (!isPlaying || !followPlayback) return
+    const containerWidth = containerRef.current?.clientWidth ?? 800
+    const contentWidth = containerWidth - 144
+    const playheadX = currentTime * (pixelsPerBeat / (60 / song.bpm))
+    const viewLeft = scrollX
+    const viewRight = scrollX + contentWidth
+    const margin = contentWidth * 0.2
+    if (playheadX < viewLeft + margin || playheadX > viewRight - margin) {
+      const maxScrollX = Math.max(0, totalWidth + 144 - containerWidth)
+      setScrollX(Math.min(Math.max(0, playheadX - contentWidth * 0.3), maxScrollX))
+    }
+  }, [isPlaying, followPlayback, currentTime, pixelsPerBeat, song.bpm, scrollX, totalWidth, setScrollX])
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -97,10 +111,10 @@ export function Timeline() {
       const profile = device ? getProfile(device.profileId) : undefined
       const items: MenuItem[] = []
 
-      if (event.commandId === 'qc-scene' && device && profile?.supportsScenes) {
-        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+      if ((event.commandId === 'qc-scene' || event.commandId === 'helix-lt-snapshot') && device && profile?.supportsScenes) {
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].slice(0, profile.maxScenes ?? 8)
         items.push({
-          label: 'Set Scene',
+          label: event.commandId === 'helix-lt-snapshot' ? 'Set Snapshot' : 'Set Scene',
           children: letters.map((letter, i) => {
             const sceneNum = i + 1
             const namedScene = device.presets
@@ -122,7 +136,7 @@ export function Timeline() {
         })
       }
 
-      if (event.commandId === 'qc-preset' && device && device.presets.length > 0) {
+      if ((event.commandId === 'qc-preset' || event.commandId === 'helix-lt-preset') && device && device.presets.length > 0) {
         items.push({
           label: 'Set Preset',
           children: device.presets.map((preset) => ({

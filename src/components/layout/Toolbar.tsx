@@ -9,9 +9,10 @@ import type { SnapMode } from '../../types/timeline'
 export function Toolbar() {
   const song = useProjectStore((s) => s.activeSong())
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
-  const { isPlaying, currentTimeSeconds, play, stop, setCurrentTime } =
+  const { isPlaying, currentTimeSeconds, play, stop, setCurrentTime,
+    metronomeEnabled, toggleMetronome, metronomeVolume, setMetronomeVolume } =
     useTransportStore()
-  const { snapMode, setSnapMode, setSongSettingsOpen } = useUIStore()
+  const { snapMode, setSnapMode, setSongSettingsOpen, followPlayback, toggleFollowPlayback } = useUIStore()
   const undo = useProjectStore((s) => s.undo)
   const redo = useProjectStore((s) => s.redo)
 
@@ -144,6 +145,42 @@ export function Toolbar() {
               <path d="M3 2l11 6-11 6V2z" />
             </svg>
           )}
+        </button>
+        <button
+          onClick={toggleMetronome}
+          className={`w-8 h-8 flex items-center justify-center rounded text-gray-300 ${
+            metronomeEnabled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-gray-700'
+          }`}
+          title={metronomeEnabled ? 'Metronome On' : 'Metronome Off'}
+        >
+          <svg viewBox="0 0 16 16" className="w-4 h-4 fill-current">
+            <path d="M4 14l4-12 4 12H4zm4-9.5L5.5 13h5L8 4.5z" />
+            <line x1="8" y1="4" x2="11" y2="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          </svg>
+        </button>
+        {metronomeEnabled && (
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={metronomeVolume}
+            onChange={(e) => setMetronomeVolume(Number(e.target.value))}
+            className="w-16 h-1 accent-blue-500"
+            title={`Metronome volume: ${Math.round(metronomeVolume * 100)}%`}
+          />
+        )}
+        <button
+          onClick={toggleFollowPlayback}
+          className={`w-8 h-8 flex items-center justify-center rounded text-gray-300 ${
+            followPlayback ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'hover:bg-gray-700'
+          }`}
+          title={followPlayback ? 'Follow Playback On' : 'Follow Playback Off'}
+        >
+          <svg viewBox="0 0 16 16" className="w-4 h-4 fill-current">
+            <path d="M2 8h8l-3-3m3 3l-3 3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <rect x="12" y="3" width="2" height="10" rx="0.5" />
+          </svg>
         </button>
       </div>
 

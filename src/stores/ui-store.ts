@@ -12,6 +12,7 @@ interface UIState {
   songSettingsOpen: boolean
   setlistOpen: boolean
   helpOpen: boolean
+  followPlayback: boolean
 
   setZoom: (zoom: number) => void
   setScrollX: (x: number) => void
@@ -25,6 +26,7 @@ interface UIState {
   setSongSettingsOpen: (open: boolean) => void
   setSetlistOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
+  toggleFollowPlayback: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -38,6 +40,7 @@ export const useUIStore = create<UIState>((set) => ({
   songSettingsOpen: false,
   setlistOpen: false,
   helpOpen: false,
+  followPlayback: true,
 
   setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(4, zoom)) }),
   setScrollX: (x) => set({ scrollX: Math.max(0, x) }),
@@ -61,5 +64,6 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSongSettingsOpen: (open) => set({ songSettingsOpen: open }),
   setSetlistOpen: (open) => set({ setlistOpen: open }),
-  setHelpOpen: (open) => set({ helpOpen: open })
+  setHelpOpen: (open) => set({ helpOpen: open }),
+  toggleFollowPlayback: () => set((state) => ({ followPlayback: !state.followPlayback }))
 }))

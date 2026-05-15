@@ -47,21 +47,26 @@ midi-editor/
 │   │   └── timeline.ts  # SnapMode ('bar'|'beat'|'off'), ViewState
 │   ├── stores/
 │   │   ├── project-store.ts   # All song/event/device CRUD, undo/redo, multi-song, clipboard
-│   │   ├── transport-store.ts # isPlaying, currentTimeSeconds, play/stop/setCurrentTime
-│   │   └── ui-store.ts        # zoom, scrollX/Y, snapMode, selectedEventIds, viewMode, dialog flags
+│   │   ├── transport-store.ts # isPlaying, currentTimeSeconds, metronome state, play/stop/setCurrentTime
+│   │   └── ui-store.ts        # zoom, scrollX/Y, snapMode, selectedEventIds, viewMode, followPlayback, dialog flags
 │   ├── engine/
 │   │   ├── clock.ts           # positionToSeconds, secondsToPosition, snapPosition, positionToTotalTicks
 │   │   ├── device-protocol.ts # getBuiltInProfiles, getProfile, resolveEventToRawMidi
+│   │   ├── sweep.ts           # Expression pedal sweep logic, isSweepCommand, SWEEP_COMMAND_IDS
 │   │   └── profiles/
 │   │       ├── quad-cortex.ts                  # Built-in QC profile
+│   │       ├── helix-lt.ts                     # Built-in Line 6 Helix LT profile
 │   │       ├── darkglass-alpha-omega-photon.ts # Built-in Darkglass profile
 │   │       └── generic.ts                      # Built-in Generic MIDI profile
 │   ├── lib/
 │   │   ├── midi-file-io.ts    # exportSongToMidi, exportSongToMidiFormat0, batchExportToZip
 │   │   └── project-file-io.ts # serializeProject, downloadProjectFile, loadProjectFile (.midiproj)
+│   ├── hooks/
+│   │   ├── useMidiPlayback.ts # Live MIDI output: event firing, sweep interpolation, MIDI clock
+│   │   └── useMetronome.ts    # Web Audio API metronome: beat scheduling with look-ahead
 │   └── components/
 │       ├── layout/
-│       │   ├── Toolbar.tsx    # Transport controls, BPM/bars/timesig inputs, MenuBar, song name
+│       │   ├── Toolbar.tsx    # Transport controls, metronome toggle+volume, follow playback, BPM/bars/timesig, MenuBar
 │       │   ├── MenuBar.tsx    # File menu + Setlist + Help buttons; keyboard shortcuts
 │       │   └── StatusBar.tsx  # Device count, event count, bar count
 │       ├── sidebar/
@@ -185,13 +190,16 @@ Uses Zustand + Immer `produceWithPatches`. Every mutation goes through the `muta
 - `zoom` (0.25–4), `scrollX`, `scrollY` — timeline view state
 - `snapMode: SnapMode` — 'bar' | 'beat' | 'off'
 - `selectedEventIds: Set<string>` — multi-select
+- `followPlayback` (default `true`) — auto-scroll timeline to keep playhead visible during playback
 - `sidebarOpen`, `songSettingsOpen`, `setlistOpen`, `helpOpen` — panel/dialog visibility
-- `selectEvent(id, multi?)`, `selectAll(ids)`, `deselectAll()`
-- `setScrollX` clamps to `>= 0` only — **max bound is enforced in Timeline.tsx's handleWheel**
+- `selectEvent(id, multi?)`, `selectAll(ids)`, `deselectAll()`, `toggleFollowPlayback()`
+- `setScrollX` clamps to `>= 0` only — **max bound is enforced in Timeline.tsx's handleWheel and the follow-playback effect**
 
 ### transport-store (`src/stores/transport-store.ts`)
 
 - `isPlaying`, `currentTimeSeconds`
+- `metronomeEnabled` (default `false`), `metronomeVolume` (0–1, default `0.5`) — metronome toggle and volume
+- `toggleMetronome()`, `setMetronomeVolume(v)` — metronome actions
 - Transport clock runs in Toolbar.tsx via `requestAnimationFrame` using `performance.now()` timestamps (not setInterval). Uses `startTimeRef` + `startOffsetRef` pattern to avoid drift.
 
 ---
@@ -234,6 +242,30 @@ x = (bar-1) * pixelsPerBar + (beat-1) * pixelsPerBeat + tick/TICKS_PER_BEAT * pi
 
 ---
 
+## Metronome
+
+The metronome generates audible click sounds during playback using the Web Audio API.
+
+- **Hook:** `useMetronome()` in `src/hooks/useMetronome.ts`, called from App.tsx alongside `useMidiPlayback()`
+- **Scheduling:** Uses a look-ahead pattern (100ms window). On each transport store update, schedules upcoming beat clicks via `OscillatorNode.start(exactTime)` for sample-accurate timing
+- **AudioContext:** Module-level singleton, created lazily on first play+enabled. `resume()` called on play start (browser autoplay policy)
+- **Sound:** Downbeat = 880 Hz sine, 40ms, gain = `metronomeVolume`. Other beats = 440 Hz sine, 30ms, gain = `metronomeVolume * 0.6`. Short exponential gain ramp to avoid pops
+- **Time sync:** Maps song-seconds to AudioContext time via offset captured at play start: `acOffset = audioContext.currentTime - currentTimeSeconds`
+- **Lifecycle:** On stop/seek/toggle-off, all scheduled oscillators are immediately cancelled via `.stop(0)`. BPM changes reset scheduling state
+- **UI:** Toggle button + volume slider (visible when enabled) in Toolbar transport section
+
+---
+
+## Follow Playback
+
+Auto-scrolls the timeline to keep the playhead visible during playback.
+
+- **State:** `followPlayback: boolean` in ui-store (default `true`), toggled via button in Toolbar
+- **Logic:** `useEffect` in Timeline.tsx watches `currentTimeSeconds` during playback. When the playhead exits the visible area (with 20% margin on each side), scrollX is updated to position the playhead at 30% from the left edge
+- **Scroll clamping:** Respects the same `maxScrollX = totalWidth + 144 - containerWidth` bound as `handleWheel`
+
+---
+
 ## QC MIDI Protocol
 
 QC hierarchy: **Library → Preset → Scene** (8 scenes per preset, labeled A–H).
@@ -253,6 +285,33 @@ For `qc-preset` with `bank=0, setlist=1, preset=5`: emits `CC#0=0`, `CC#32=1`, `
 Other QC CCs: `CC#44` Tap Tempo, `CC#45` Tuner, `CC#46` Gig View.
 
 **Named presets & scenes:** Users define friendly preset names (with bank/setlist/programNumber) and scene names (A–H) per device in Song Settings. The EventEditor shows dropdowns instead of raw number inputs when presets are configured.
+
+---
+
+## Line 6 Helix LT MIDI Protocol
+
+Helix LT hierarchy: **Setlist → Preset → Snapshot** (3 snapshots per preset, labeled A–C).
+
+**Snapshot recall** — single message on the device's channel:
+- `CC#69 value 0–2` → Snapshot 1–3 (A–C)
+- `CC#69 value 8` → Previous snapshot, `CC#69 value 9` → Next snapshot
+
+For `helix-lt-snapshot` with `parameters.scene = 2`: emits `CC#69 value 1`.
+
+**Preset recall** — three messages on the device's channel:
+1. `CC#0 value 0–7` → Bank MSB
+2. `CC#32 value 0–7` → Setlist
+3. `PC 0–127` → Preset number
+
+For `helix-lt-preset` with `bank=0, setlist=0, preset=5`: emits `CC#0=0`, `CC#32=0`, `PC 5`.
+
+Other Helix LT CCs: `CC#64` Tap Tempo (value 64–127), `CC#68` Tuner toggle, `CC#70` All Bypass toggle (0–63 off / 64–127 on).
+
+**Expression pedals:** `CC#1` (EXP 1), `CC#2` (EXP 2) — same sweep mechanism as QC expression pedals.
+
+**Footswitches:** `CC#49–56` (FS1–FS8) — toggle commands sending value 127.
+
+**Snapshot ↔ Scene mapping:** Helix LT snapshots reuse the `scene` parameter name internally (`parameters.scene`) so the existing scene color/UI machinery (resolveEventColor, EventEditor scene picker, Timeline context menu) works for both QC scenes and Helix snapshots. The `supportsScenes: true` and `maxScenes: 3` flags control the UI. Scene letters A–H are sliced to A–C for Helix.
 
 ---
 
@@ -437,7 +496,7 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 ## Known Issues / Not Yet Implemented
 
 - **Live MIDI output** — no node-midi integration yet. The `ipcMain` file dialog handlers exist but live MIDI output is Phase 7 (future).
-- **Custom device profile editor** — users can't yet create profiles in-app; built-ins are QC, Darkglass Alpha Omega Photon, and Generic.
+- **Custom device profile editor** — users can't yet create profiles in-app; built-ins are QC, Helix LT, Darkglass Alpha Omega Photon, and Generic.
 - **Canvas timeline** — still DOM-based (EventLane/EventBlock as divs). Performance is adequate for typical song lengths but a canvas renderer was planned for large setlists.
 - **Preset drag-and-drop** — DevicePanel sidebar lists commands but drag-to-timeline isn't implemented; events are added by double-clicking the lane.
 - **Loop playback** — `loopEnabled/loopStartBar/loopEndBar` exist in transport-store but the play clock in Toolbar doesn't enforce the loop range yet.
@@ -449,7 +508,7 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 ## Common Pitfalls
 
 1. **`electron.vite.config.ts` naming** — must use `.` not `-` in filename or electron-vite won't discover it.
-2. **Scroll X has no upper bound in ui-store** — the cap is enforced only in `Timeline.tsx handleWheel`. If you add other scroll sources, clamp there too.
+2. **Scroll X has no upper bound in ui-store** — the cap is enforced in `Timeline.tsx handleWheel` and the follow-playback `useEffect`. If you add other scroll sources, clamp there too.
 3. **Immer patches** — `applyPatch` at the bottom of project-store.ts is custom. Don't import `applyPatches` from immer — it wasn't wired up.
 4. **midi-writer-js PPQ** — uses 128 ticks/beat internally, not 480. Scale with `128/TICKS_PER_BEAT`.
 5. **Grid/Playhead offset** — TimelineGrid and Playhead receive plain `scrollX` (not `scrollX - 144`) because they each live inside their own `left: 144px` clipped wrapper div. The Playhead wrapper has `z-30` and is rendered after the lanes; the Grid wrapper has no z-index and renders behind lanes.
@@ -463,3 +522,5 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 13. **QC scene labels are A–H, not 1–8** — internally stored as `sceneNumber` 1–8, but always display as letters. CC#43 value = sceneNumber − 1.
 14. **WaveformLane AbortError** — `ws.destroy()` during an in-flight `ws.load()` throws AbortError. Catch it and ignore only AbortError; re-throw others.
 15. **WaveformLane zoom guard** — call `ws.zoom()` only when `ws.getDuration() > 0`; otherwise wavesurfer throws "No audio loaded".
+16. **Scene/snapshot command IDs are hardcoded in UI** — `resolveEventColor`, EventEditor, Timeline context menus, and EventListView all check for specific command IDs (`qc-scene`, `helix-lt-snapshot`, `qc-preset`, `helix-lt-preset`). When adding a new device profile with scene/preset commands, add its command IDs to these checks.
+17. **Sweep command IDs must be registered** — `SWEEP_COMMAND_IDS` in `src/engine/sweep.ts` is a `Set` of command IDs that use the expression pedal sweep UI (startValue/endValue/durationBeats/easingType). New sweep commands must be added to this set or the sweep UI won't appear in EventEditor and playback won't interpolate them.

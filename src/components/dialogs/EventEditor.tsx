@@ -172,7 +172,7 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
           {command?.parameters && command.parameters.length > 0 && (
             <div className="space-y-2">
               {/* QC preset picker: dropdown when presets are configured */}
-              {commandId === 'qc-preset' && device.presets.length > 0 ? (
+              {(commandId === 'qc-preset' || commandId === 'helix-lt-preset') && device.presets.length > 0 ? (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Preset</label>
                   <select
@@ -196,10 +196,10 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                     ))}
                   </select>
                 </div>
-              ) : commandId === 'qc-scene' ? (
-                /* QC scene picker: A–H dropdown, with optional user-defined names */
+              ) : (commandId === 'qc-scene' || commandId === 'helix-lt-snapshot') ? (
+                /* Scene/snapshot picker dropdown, with optional user-defined names */
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Scene</label>
+                  <label className="block text-xs text-gray-400 mb-1">{commandId === 'helix-lt-snapshot' ? 'Snapshot' : 'Scene'}</label>
                   <select
                     value={params['scene'] ?? 1}
                     onChange={(e) => {
@@ -210,14 +210,14 @@ export function EventEditor({ eventId, onClose }: EventEditorProps) {
                       const namedScene = device.presets.flatMap((p) => p.scenes)
                         .find((s) => s.sceneNumber === sceneNum)
                       setLabel(namedScene ? `Scene ${letter}: ${namedScene.name}` : `Scene ${letter}`)
-                      setEventColor(resolveEventColor('qc-scene', device, sceneNum))
+                      setEventColor(resolveEventColor(commandId, device, sceneNum))
                     }}
                     className="w-full bg-gray-900 text-sm text-gray-200 rounded px-3 py-1.5
                       border border-gray-700 focus:border-blue-500 focus:outline-none"
                   >
-                    {['A','B','C','D','E','F','G','H'].map((letter, i) => {
+                    {['A','B','C','D','E','F','G','H'].slice(0, profile?.maxScenes ?? 8).map((letter, i) => {
                       const sceneNum = i + 1
-                      const sceneColor = resolveEventColor('qc-scene', device, sceneNum)
+                      const sceneColor = resolveEventColor(commandId, device, sceneNum)
                       const named = device.presets.flatMap((p) => p.scenes)
                         .find((s) => s.sceneNumber === sceneNum)
                       return (

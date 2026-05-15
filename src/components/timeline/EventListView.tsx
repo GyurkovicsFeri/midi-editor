@@ -14,10 +14,10 @@ function positionKey(e: MidiEvent) {
 function paramSummary(event: MidiEvent, commandId: string | undefined, deviceId: string): string {
   const p = event.parameters
   if (!p || Object.keys(p).length === 0) return ''
-  if (commandId === 'qc-preset') {
+  if (commandId === 'qc-preset' || commandId === 'helix-lt-preset') {
     return `Bank ${p['bank'] ?? 0} / List ${p['setlist'] ?? 0} / PC ${p['preset'] ?? 0}`
   }
-  if (commandId === 'qc-scene') {
+  if (commandId === 'qc-scene' || commandId === 'helix-lt-snapshot') {
     const letters = ['A','B','C','D','E','F','G','H']
     return `Scene ${letters[(p['scene'] as number) - 1] ?? p['scene']}`
   }

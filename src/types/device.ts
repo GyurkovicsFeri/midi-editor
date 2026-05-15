@@ -67,7 +67,7 @@ export function resolveEventColor(
   device: MidiDevice,
   sceneNumber?: number
 ): string {
-  if (commandId === 'qc-scene') {
+  if (commandId === 'qc-scene' || commandId === 'helix-lt-snapshot') {
     const sceneNum = sceneNumber ?? 1
     const scene = device.presets.flatMap((p) => p.scenes).find((s) => s.sceneNumber === sceneNum)
     return scene?.color ?? DEFAULT_SCENE_COLORS[sceneNum - 1]
