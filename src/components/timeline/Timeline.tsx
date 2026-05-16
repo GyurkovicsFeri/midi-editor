@@ -32,6 +32,9 @@ export function Timeline() {
   const deleteEvent = useProjectStore((s) => s.deleteEvent)
   const updateEvent = useProjectStore((s) => s.updateEvent)
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
+  const addAudioTrack = useProjectStore((s) => s.addAudioTrack)
+  const updateAudioTrack = useProjectStore((s) => s.updateAudioTrack)
+  const removeAudioTrack = useProjectStore((s) => s.removeAudioTrack)
   const addSection = useProjectStore((s) => s.addSection)
   const deleteSection = useProjectStore((s) => s.deleteSection)
   const isPlaying = useTransportStore((s) => s.isPlaying)
@@ -54,7 +57,7 @@ export function Timeline() {
   const pixelsPerBar = pixelsPerBeat * beatsPerBar
   const totalWidth = song.totalBars * pixelsPerBar
   const laneHeight = 48
-  const waveformHeight = 72
+  const waveformHeight = song.audioTracks.length > 0 ? song.audioTracks.length * 72 + 24 : 40
   const lanesHeight = Math.max(200, devices.length * laneHeight + waveformHeight)
 
   useEffect(() => {
@@ -467,15 +470,47 @@ export function Timeline() {
 
           {/* Waveform */}
           <WaveformLane
-            audioUrl={song.audioFilePath ?? null}
+            tracks={song.audioTracks}
             pixelsPerBeat={pixelsPerBeat}
             beatsPerBar={beatsPerBar}
             bpm={song.bpm}
             scrollX={scrollX}
-            audioOffsetMs={song.audioOffsetMs}
             isPlaying={isPlaying}
             currentTimeSeconds={currentTime}
-            onOffsetChange={(ms) => setSongProperty('audioOffsetMs', ms)}
+            onTrackOffsetChange={(trackId, ms) => updateAudioTrack(trackId, { offsetMs: ms })}
+            onTrackVolumeChange={(trackId, volume) => updateAudioTrack(trackId, { volume })}
+            onTrackMuteToggle={(trackId) => {
+              const track = song.audioTracks.find((t) => t.id === trackId)
+              if (track) updateAudioTrack(trackId, { muted: !track.muted })
+            }}
+            onTrackRemove={(trackId) => removeAudioTrack(trackId)}
+            onTrackEmbeddedToggle={(trackId) => {
+              const track = song.audioTracks.find((t) => t.id === trackId)
+              if (track) updateAudioTrack(trackId, { embedded: !track.embedded })
+            }}
+            onAddTrack={() => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = 'audio/*'
+              input.onchange = async () => {
+                const file = input.files?.[0]
+                if (!file) return
+                const filePath = URL.createObjectURL(file)
+                const fileData = await file.arrayBuffer()
+                addAudioTrack({
+                  name: file.name.replace(/\.[^/.]+$/, ''),
+                  filePath,
+                  fileData,
+                  fileName: file.name,
+                  offsetMs: 0,
+                  volume: 1,
+                  muted: false,
+                  color: ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'][song.audioTracks.length % 5],
+                  embedded: true
+                })
+              }
+              input.click()
+            }}
           />
         </div>
 

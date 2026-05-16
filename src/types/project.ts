@@ -9,16 +9,27 @@ export interface Section {
   color: string
 }
 
+export interface AudioTrack {
+  id: string
+  name: string
+  filePath?: string
+  fileData?: ArrayBuffer
+  fileName?: string
+  offsetMs: number
+  volume: number
+  muted: boolean
+  color: string
+  embedded: boolean
+}
+
 export interface Song {
   id: string
   name: string
   bpm: number
   timeSignature: [number, number]
   totalBars: number
-  audioFilePath?: string
-  audioFileData?: ArrayBuffer  // raw audio binary held in memory (persisted in .midiproj ZIP)
-  audioFileName?: string       // original filename for display
-  audioOffsetMs: number
+  audioTracks: AudioTrack[]
+  liveOffset: { bars: number; beats: number }
   sections: Section[]
   events: MidiEvent[]
 }

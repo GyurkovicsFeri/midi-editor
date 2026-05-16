@@ -133,6 +133,36 @@ export function SongSettings() {
             />
           </div>
 
+          {/* Live Export Offset */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Live Export Offset <span className="text-gray-600 font-normal">(adds empty bars before events in exported MIDI)</span></label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={song.liveOffset.bars}
+                  onChange={(e) => setSongProperty('liveOffset', { ...song.liveOffset, bars: Math.max(0, parseInt(e.target.value) || 0) })}
+                  className="w-16 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1.5
+                    border border-gray-700 focus:border-blue-500 focus:outline-none"
+                />
+                <span className="text-xs text-gray-400">bars</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={song.timeSignature[0] - 1}
+                  value={song.liveOffset.beats}
+                  onChange={(e) => setSongProperty('liveOffset', { ...song.liveOffset, beats: Math.max(0, parseInt(e.target.value) || 0) })}
+                  className="w-16 bg-gray-900 text-sm text-gray-200 rounded px-2 py-1.5
+                    border border-gray-700 focus:border-blue-500 focus:outline-none"
+                />
+                <span className="text-xs text-gray-400">beats</span>
+              </div>
+            </div>
+          </div>
+
           {/* Devices — shared across all songs in the setlist */}
           <div>
             <label className="block text-xs text-gray-400 mb-2">Devices <span className="text-gray-600 font-normal">(shared across all songs)</span></label>

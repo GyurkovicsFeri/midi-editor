@@ -1,8 +1,9 @@
 import JSZip from 'jszip'
+import { v4 as uuid } from 'uuid'
 import type { MidiDevice } from '../types/device'
-import type { Project, Song } from '../types/project'
+import type { Project, Song, AudioTrack } from '../types/project'
 
-const PROJECT_VERSION = 2
+const PROJECT_VERSION = 3
 
 interface ProjectFile {
   version: number
@@ -13,7 +14,6 @@ function migrateV1ToV2(file: ProjectFile): ProjectFile {
   console.warn('[midiproj] Migrating project from v1 to v2 (devices moved to setlist)')
   const project = file.project as Project & { songs: (Song & { devices?: MidiDevice[] })[] }
 
-  // Collect all unique devices from all songs (de-dup by id)
   const seen = new Set<string>()
   const devices: MidiDevice[] = []
   for (const song of project.songs) {
@@ -27,14 +27,50 @@ function migrateV1ToV2(file: ProjectFile): ProjectFile {
   return { version: 2, project }
 }
 
-/**
- * Prepare a song for serialization by stripping runtime-only fields.
- * - audioFilePath: blob URL, runtime only
- * - audioFileData: raw ArrayBuffer held in memory, not serialisable to JSON
- */
+interface LegacyAudioSong {
+  audioFilePath?: string
+  audioFileData?: ArrayBuffer | string
+  audioFileName?: string
+  audioOffsetMs?: number
+}
+
+function migrateV2ToV3(file: ProjectFile): ProjectFile {
+  console.warn('[midiproj] Migrating project from v2 to v3 (multi-track audio + liveOffset)')
+  for (const song of file.project.songs) {
+    const legacy = song as unknown as LegacyAudioSong & Song
+    if (!song.audioTracks) {
+      song.audioTracks = []
+      if (legacy.audioFileName || legacy.audioFileData) {
+        song.audioTracks.push({
+          id: uuid(),
+          name: legacy.audioFileName ?? 'Audio',
+          fileName: legacy.audioFileName,
+          fileData: legacy.audioFileData as ArrayBuffer | undefined,
+          filePath: legacy.audioFilePath,
+          offsetMs: legacy.audioOffsetMs ?? 0,
+          volume: 1,
+          muted: false,
+          color: '#3b82f6',
+          embedded: true
+        })
+      }
+    }
+    delete (legacy as any).audioFilePath
+    delete (legacy as any).audioFileData
+    delete (legacy as any).audioFileName
+    delete (legacy as any).audioOffsetMs
+    if (!song.liveOffset) {
+      song.liveOffset = { bars: 0, beats: 0 }
+    }
+  }
+  return { version: 3, project: file.project }
+}
+
 function prepareSongForSerialization(song: Song): Record<string, unknown> {
-  const { audioFilePath, audioFileData, ...rest } = song
-  return rest
+  return {
+    ...song,
+    audioTracks: song.audioTracks.map(({ filePath, fileData, ...rest }) => rest)
+  }
 }
 
 /**
@@ -58,10 +94,12 @@ export async function downloadProjectFile(project: Project, filename: string): P
   }
   zip.file('project.json', JSON.stringify(projectFile, null, 2))
 
-  // Add audio files for each song that has one
+  // Add embedded audio tracks
   for (const song of project.songs) {
-    if (song.audioFileData && song.audioFileName) {
-      zip.file(`audio/${song.audioFileName}`, song.audioFileData)
+    for (const track of song.audioTracks) {
+      if (track.embedded && track.fileData && track.fileName) {
+        zip.file(`audio/${song.id}/${track.id}-${track.fileName}`, track.fileData)
+      }
     }
   }
 
@@ -138,30 +176,30 @@ async function loadFromZip(buffer: ArrayBuffer): Promise<Project> {
     throw new Error('Invalid project file')
   }
 
-  const migrated = file.version < 2 ? migrateV1ToV2(file) : file
+  let migrated = file
+  if (migrated.version < 2) migrated = migrateV1ToV2(migrated)
+  if (migrated.version < 3) migrated = migrateV2ToV3(migrated)
   const project = migrated.project
 
-  // Rehydrate audio: for each song with an audioFileName, look for it in audio/
+  // Rehydrate audio tracks from ZIP
   for (const song of project.songs) {
-    if (song.audioFileName) {
-      const audioFile = zip.file(`audio/${song.audioFileName}`)
+    for (const track of song.audioTracks) {
+      if (!track.fileName) continue
+      // Try new path format first, then legacy
+      const newPath = `audio/${song.id}/${track.id}-${track.fileName}`
+      const legacyPath = `audio/${track.fileName}`
+      const audioFile = zip.file(newPath) ?? zip.file(legacyPath)
       if (audioFile) {
         const audioData = await audioFile.async('arraybuffer')
-        // Determine MIME type from extension
-        const ext = song.audioFileName.split('.').pop()?.toLowerCase() ?? ''
+        const ext = track.fileName.split('.').pop()?.toLowerCase() ?? ''
         const mimeMap: Record<string, string> = {
-          mp3: 'audio/mpeg',
-          wav: 'audio/wav',
-          ogg: 'audio/ogg',
-          flac: 'audio/flac',
-          aac: 'audio/aac',
-          m4a: 'audio/mp4',
-          webm: 'audio/webm'
+          mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+          flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', webm: 'audio/webm'
         }
         const mime = mimeMap[ext] || 'audio/mpeg'
         const blob = new Blob([audioData], { type: mime })
-        song.audioFilePath = URL.createObjectURL(blob)
-        song.audioFileData = audioData
+        track.filePath = URL.createObjectURL(blob)
+        track.fileData = audioData
       }
     }
   }
@@ -179,13 +217,11 @@ function deserializeLegacyProject(json: string): Project {
     throw new Error('Invalid project file')
   }
   if (file.version < 2) file = migrateV1ToV2(file)
-  const project = file.project
 
-  // Rehydrate any base64-embedded audio from legacy format
-  project.songs = project.songs.map((song) => {
-    const legacySong = song as Song & { audioFileData?: string }
+  // Rehydrate any base64-embedded audio from legacy format before v3 migration
+  for (const song of file.project.songs) {
+    const legacySong = song as any
     if (typeof legacySong.audioFileData === 'string' && legacySong.audioFileData.startsWith('data:')) {
-      // Convert legacy base64 data URI to ArrayBuffer + blob URL
       try {
         const [header, base64] = legacySong.audioFileData.split(',')
         const mime = header.match(/:(.*?);/)?.[1] ?? 'audio/mpeg'
@@ -195,14 +231,14 @@ function deserializeLegacyProject(json: string): Project {
           bytes[i] = binary.charCodeAt(i)
         }
         const blob = new Blob([bytes], { type: mime })
-        song.audioFilePath = URL.createObjectURL(blob)
-        song.audioFileData = bytes.buffer as ArrayBuffer
+        legacySong.audioFilePath = URL.createObjectURL(blob)
+        legacySong.audioFileData = bytes.buffer as ArrayBuffer
       } catch (e) {
         console.error('Failed to decode legacy audio data:', e)
       }
     }
-    return song
-  })
+  }
 
-  return project
+  if (file.version < 3) file = migrateV2ToV3(file)
+  return file.project
 }

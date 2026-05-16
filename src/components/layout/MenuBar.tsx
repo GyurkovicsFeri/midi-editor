@@ -14,6 +14,7 @@ export function MenuBar() {
   const song = useProjectStore((s) => s.activeSong())
   const devices = useProjectStore((s) => s.setlistDevices())
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
+  const addAudioTrack = useProjectStore((s) => s.addAudioTrack)
   const markClean = useProjectStore((s) => s.markClean)
   const setSetlistOpen = useUIStore((s) => s.setSetlistOpen)
   const setHelpOpen = useUIStore((s) => s.setHelpOpen)
@@ -87,16 +88,22 @@ export function MenuBar() {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'audio/*'
-    input.onchange = () => {
+    input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      const url = URL.createObjectURL(file)
-      setSongProperty('audioFilePath', url)
-      setSongProperty('audioFileName', file.name)
-
-      // Read file as ArrayBuffer for persistence in .midiproj ZIP
-      file.arrayBuffer().then((buffer) => {
-        setSongProperty('audioFileData', buffer)
+      const filePath = URL.createObjectURL(file)
+      const fileData = await file.arrayBuffer()
+      const trackColors = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
+      addAudioTrack({
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        filePath,
+        fileData,
+        fileName: file.name,
+        offsetMs: 0,
+        volume: 1,
+        muted: false,
+        color: trackColors[song.audioTracks.length % trackColors.length],
+        embedded: true
       })
 
       const audio = new Audio()
@@ -104,13 +111,15 @@ export function MenuBar() {
         const beatsPerBar = song.timeSignature[0]
         const totalBeats = audio.duration * (song.bpm / 60)
         const bars = Math.ceil(totalBeats / beatsPerBar)
-        setSongProperty('totalBars', bars)
+        if (bars > song.totalBars) {
+          setSongProperty('totalBars', bars)
+        }
         audio.src = ''
       }
-      audio.src = url
+      audio.src = filePath
     }
     input.click()
-  }, [setSongProperty, song.bpm, song.timeSignature])
+  }, [addAudioTrack, setSongProperty, song.bpm, song.timeSignature, song.audioTracks.length, song.totalBars])
 
   const menuItems = [
     { label: 'Load Project...', action: handleLoadProject, shortcut: 'Ctrl+O' },

@@ -58,6 +58,13 @@ export function exportSongToMidi(
 
     tickedMessages.sort((a, b) => a.scaledTick - b.scaledTick)
 
+    const liveOffsetTicks = ((song.liveOffset?.bars ?? 0) * beatsPerBar + (song.liveOffset?.beats ?? 0)) * 128
+    if (liveOffsetTicks > 0) {
+      for (const msg of tickedMessages) {
+        msg.scaledTick += liveOffsetTicks
+      }
+    }
+
     let lastScaledTick = 0
     for (const { scaledTick, msg } of tickedMessages) {
       const delta = scaledTick - lastScaledTick
@@ -133,6 +140,13 @@ export function exportSongToMidiFormat0(
 
   // Stable sort by tick — groups from the same event stay adjacent
   allMessages.sort((a, b) => a.scaledTick - b.scaledTick)
+
+  const liveOffsetTicks = ((song.liveOffset?.bars ?? 0) * beatsPerBar + (song.liveOffset?.beats ?? 0)) * 128
+  if (liveOffsetTicks > 0) {
+    for (const msg of allMessages) {
+      msg.scaledTick += liveOffsetTicks
+    }
+  }
 
   const track = new MidiWriter.Track()
   track.setTempo(song.bpm)

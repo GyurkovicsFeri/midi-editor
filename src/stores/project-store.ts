@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { produce, enablePatches, type Patch } from 'immer'
 import { v4 as uuid } from 'uuid'
-import type { Song, Section, Project } from '../types/project'
+import type { Song, Section, Project, AudioTrack } from '../types/project'
 import type { MidiEvent, MusicalPosition } from '../types/midi'
 import type { MidiDevice, DeviceProfile } from '../types/device'
 
@@ -16,7 +16,8 @@ function createDefaultSong(): Song {
     bpm: 120,
     timeSignature: [4, 4],
     totalBars: 32,
-    audioOffsetMs: 0,
+    audioTracks: [],
+    liveOffset: { bars: 0, beats: 0 },
     sections: [],
     events: []
   }
@@ -37,6 +38,10 @@ interface ProjectState {
   activeSong: () => Song
   setlistDevices: () => MidiDevice[]
   setSongProperty: <K extends keyof Song>(key: K, value: Song[K]) => void
+
+  addAudioTrack: (track: Omit<AudioTrack, 'id'>) => string
+  updateAudioTrack: (trackId: string, changes: Partial<AudioTrack>) => void
+  removeAudioTrack: (trackId: string) => void
 
   addDevice: (profileId: string, name: string, midiChannel: number) => void
   updateDevice: (deviceId: string, changes: Partial<MidiDevice>) => void
@@ -116,6 +121,31 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       mutate((project) => {
         const song = project.songs.find((s) => s.id === project.activeSongId)
         if (song) (song[key] as typeof value) = value
+      })
+    },
+
+    addAudioTrack: (trackData) => {
+      const id = uuid()
+      mutate((project) => {
+        const song = project.songs.find((s) => s.id === project.activeSongId)
+        if (song) song.audioTracks.push({ ...trackData, id })
+      })
+      return id
+    },
+
+    updateAudioTrack: (trackId, changes) => {
+      mutate((project) => {
+        const song = project.songs.find((s) => s.id === project.activeSongId)
+        if (!song) return
+        const track = song.audioTracks.find((t) => t.id === trackId)
+        if (track) Object.assign(track, changes)
+      })
+    },
+
+    removeAudioTrack: (trackId) => {
+      mutate((project) => {
+        const song = project.songs.find((s) => s.id === project.activeSongId)
+        if (song) song.audioTracks = song.audioTracks.filter((t) => t.id !== trackId)
       })
     },
 
@@ -300,10 +330,25 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     duplicateSong: (songId) => {
       const id = uuid()
+      const srcSong = get().project.songs.find((s) => s.id === songId)
+      const trackDataMap = new Map<string, { fileData?: ArrayBuffer; filePath?: string }>()
+      if (srcSong) {
+        for (const t of srcSong.audioTracks) {
+          trackDataMap.set(t.id, { fileData: t.fileData, filePath: t.filePath })
+        }
+      }
       mutate((project) => {
         const src = project.songs.find((s) => s.id === songId)
         if (!src) return
         const dup: Song = { ...JSON.parse(JSON.stringify(src)), id, name: src.name + ' (copy)' }
+        for (const track of dup.audioTracks) {
+          const data = trackDataMap.get(track.id)
+          if (data) {
+            track.fileData = data.fileData
+            track.filePath = data.filePath
+          }
+          track.id = uuid()
+        }
         project.songs.push(dup)
         const idx = project.setlist.songIds.indexOf(songId)
         project.setlist.songIds.splice(idx + 1, 0, id)
