@@ -117,7 +117,7 @@ export async function downloadProjectFile(project: Project, filename: string): P
  * Load a .midiproj file.
  * Supports both the new ZIP format and the legacy plain-JSON format.
  */
-export async function loadProjectFile(): Promise<Project | null> {
+export async function loadProjectFile(): Promise<{ project: Project; fileName: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -141,7 +141,8 @@ export async function loadProjectFile(): Promise<Project | null> {
           project = deserializeLegacyProject(text)
         }
 
-        resolve(project)
+        const fileName = file.name.replace(/\.(midiproj|json)$/i, '')
+        resolve({ project, fileName })
       } catch (e) {
         console.error('Failed to load project:', e)
         resolve(null)

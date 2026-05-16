@@ -16,6 +16,8 @@ export function MenuBar() {
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const addAudioTrack = useProjectStore((s) => s.addAudioTrack)
   const markClean = useProjectStore((s) => s.markClean)
+  const projectFileName = useProjectStore((s) => s.projectFileName)
+  const setProjectFileName = useProjectStore((s) => s.setProjectFileName)
   const setSetlistOpen = useUIStore((s) => s.setSetlistOpen)
   const setHelpOpen = useUIStore((s) => s.setHelpOpen)
 
@@ -65,17 +67,19 @@ export function MenuBar() {
 
   const handleSaveProject = useCallback(async () => {
     setOpenMenu(null)
-    const safeName = song.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'project'
-    await downloadProjectFile(project, safeName)
+    const filename = projectFileName || 'untitled'
+    await downloadProjectFile(project, filename)
+    if (!projectFileName) setProjectFileName(filename)
     markClean()
-  }, [song.name, project, markClean])
+  }, [project, projectFileName, markClean, setProjectFileName])
 
   const handleLoadProject = useCallback(async () => {
     setOpenMenu(null)
-    const loaded = await loadProjectFile()
-    if (loaded) {
+    const result = await loadProjectFile()
+    if (result) {
       useProjectStore.setState({
-        project: loaded,
+        project: result.project,
+        projectFileName: result.fileName,
         isDirty: false,
         undoStack: [],
         redoStack: []

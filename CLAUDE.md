@@ -395,17 +395,18 @@ File extension: `.midiproj`. Format version 2 is a **ZIP archive** containing:
 
 ---
 
-## BPM / Bars Input Pattern
+## Numeric Input Draft-State Pattern
 
-BPM and Bars inputs in Toolbar use **local draft state** to allow free typing. Pattern:
+**All numeric inputs** that write to a Zustand store MUST use **local draft state** to allow free typing. Binding `value={storeValue}` directly breaks mid-edit typing (cursor jumps, intermediate values committed). Pattern:
 ```tsx
-const [bpmDraft, setBpmDraft] = useState(String(song.bpm))
-const bpmFocused = useRef(false)
-useEffect(() => { if (!bpmFocused.current) setBpmDraft(String(song.bpm)) }, [song.bpm])
+const [draft, setDraft] = useState(String(storeValue))
+const focused = useRef(false)
+useEffect(() => { if (!focused.current) setDraft(String(storeValue)) }, [storeValue])
+// onFocus → focused.current = true
 // onChange → update draft only
-// onBlur / Enter → parse, clamp, commit to store
+// onBlur / Enter → parse, clamp, commit to store; focused.current = false
 ```
-This allows selecting all + retyping without intermediate invalid values being committed. Same pattern used for totalBars. **Do not revert to binding value={song.bpm} directly — it breaks mid-edit typing.**
+Used in: BPM, totalBars (Toolbar), audio track offset (WaveformLane), live offset bars/beats (SongSettings). **Apply this pattern to every new numeric input that commits to the store.**
 
 ---
 

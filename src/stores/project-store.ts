@@ -30,6 +30,7 @@ interface UndoEntry {
 
 interface ProjectState {
   project: Project
+  projectFileName: string | null
   isDirty: boolean
   undoStack: UndoEntry[]
   redoStack: UndoEntry[]
@@ -71,6 +72,7 @@ interface ProjectState {
   undo: () => void
   redo: () => void
   markClean: () => void
+  setProjectFileName: (name: string | null) => void
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => {
@@ -105,6 +107,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       customProfiles: [],
       activeSongId: defaultSong.id
     },
+    projectFileName: null,
     isDirty: false,
     undoStack: [],
     redoStack: [],
@@ -387,7 +390,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       })
     },
 
-    markClean: () => set({ isDirty: false })
+    markClean: () => set({ isDirty: false }),
+    setProjectFileName: (name) => set({ projectFileName: name })
   }
 })
 

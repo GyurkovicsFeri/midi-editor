@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import type { AudioTrack } from '../../types/project'
 
@@ -112,6 +112,19 @@ function WaveformTrack({
 
   const secondsPerBeat = 60 / bpm
   const msPerBeat = secondsPerBeat * 1000
+
+  const [offsetDraft, setOffsetDraft] = useState((track.offsetMs / msPerBeat).toFixed(2))
+  const offsetFocused = useRef(false)
+  useEffect(() => {
+    if (!offsetFocused.current) setOffsetDraft((track.offsetMs / msPerBeat).toFixed(2))
+  }, [track.offsetMs, msPerBeat])
+
+  const commitOffset = useCallback(() => {
+    offsetFocused.current = false
+    const val = parseFloat(offsetDraft)
+    if (!isNaN(val)) onOffsetChange(val * msPerBeat)
+    else setOffsetDraft((track.offsetMs / msPerBeat).toFixed(2))
+  }, [offsetDraft, msPerBeat, onOffsetChange, track.offsetMs])
   const pixelsPerSecond = pixelsPerBeat / secondsPerBeat
   const offsetPx = (track.offsetMs / 1000) * pixelsPerSecond
 
@@ -228,8 +241,11 @@ function WaveformTrack({
           <input
             type="number"
             step="0.5"
-            value={(track.offsetMs / msPerBeat).toFixed(2)}
-            onChange={(e) => onOffsetChange(Number(e.target.value) * msPerBeat)}
+            value={offsetDraft}
+            onFocus={() => { offsetFocused.current = true }}
+            onChange={(e) => setOffsetDraft(e.target.value)}
+            onBlur={commitOffset}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitOffset() }}
             className="w-14 bg-gray-900 text-[10px] text-gray-300 text-center rounded px-1 py-0.5
               border border-gray-700 focus:border-blue-500 focus:outline-none"
             title="Offset in beats"
