@@ -56,6 +56,7 @@ midi-editor/
 │   │   └── profiles/
 │   │       ├── quad-cortex.ts                  # Built-in QC profile
 │   │       ├── helix-lt.ts                     # Built-in Line 6 Helix LT profile
+│   │       ├── ve-500.ts                       # Built-in Boss VE-500 Vocal Performer profile
 │   │       ├── darkglass-alpha-omega-photon.ts # Built-in Darkglass profile
 │   │       └── generic.ts                      # Built-in Generic MIDI profile
 │   ├── lib/
@@ -315,6 +316,31 @@ Other Helix LT CCs: `CC#64` Tap Tempo (value 64–127), `CC#68` Tuner toggle, `C
 
 ---
 
+## Boss VE-500 Vocal Performer MIDI Protocol
+
+CC assignments are **user-configurable** in the VE-500's ASSIGN menu. The singer must set matching CC numbers on the device.
+
+**Preset recall** — three messages on the device's channel:
+1. `CC#0 value 0–1` → Bank (0 = User patches 0–98, 1 = Factory patches 0–49)
+2. `CC#32 value 0` → Bank LSB (always 0)
+3. `PC 0–98` → Preset number (User) or `PC 0–49` (Factory)
+
+**Effect toggle defaults** (CC numbers are typical — remap in VE-500 ASSIGN menu to match):
+
+| CC# | Control | Values |
+|-----|---------|--------|
+| 7 | Harmony On/Off | 0=off, 127=on |
+| 16 | FX/Enhance On/Off | 0=off, 127=on |
+| 17 | Dynamics On/Off | 0=off, 127=on |
+| 18 | Delay On/Off | 0=off, 127=on |
+| 19 | Reverb On/Off | 0=off, 127=on |
+
+**Expression pedal:** `CC#11` — same sweep mechanism as QC/Helix expression pedals.
+
+**Key limitation:** The VE-500 can only transmit MIDI via USB, not via the 5-pin MIDI connector. Receiving MIDI works on both USB and 5-pin.
+
+---
+
 ## Darkglass Alpha Omega Photon MIDI Protocol
 
 CC assignments are **user-configurable** in Darkglass Suite. The bassist must enter these in Darkglass Suite to match.
@@ -497,7 +523,7 @@ electron-builder config is inline in `package.json` under the `"build"` key. App
 ## Known Issues / Not Yet Implemented
 
 - **Live MIDI output** — no node-midi integration yet. The `ipcMain` file dialog handlers exist but live MIDI output is Phase 7 (future).
-- **Custom device profile editor** — users can't yet create profiles in-app; built-ins are QC, Helix LT, Darkglass Alpha Omega Photon, and Generic.
+- **Custom device profile editor** — users can't yet create profiles in-app; built-ins are QC, Helix LT, Boss VE-500, Darkglass Alpha Omega Photon, and Generic.
 - **Canvas timeline** — still DOM-based (EventLane/EventBlock as divs). Performance is adequate for typical song lengths but a canvas renderer was planned for large setlists.
 - **Preset drag-and-drop** — DevicePanel sidebar lists commands but drag-to-timeline isn't implemented; events are added by double-clicking the lane.
 - **Loop playback** — `loopEnabled/loopStartBar/loopEndBar` exist in transport-store but the play clock in Toolbar doesn't enforce the loop range yet.

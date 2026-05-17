@@ -8,7 +8,8 @@ const SCALE_FACTOR = 128 / TICKS_PER_BEAT
 
 const SWEEP_COMMAND_IDS = new Set([
   'qc-exp-pedal-1', 'qc-exp-pedal-2',
-  'helix-lt-exp-1', 'helix-lt-exp-2'
+  'helix-lt-exp-1', 'helix-lt-exp-2',
+  've500-exp-pedal'
 ])
 
 export const EASING_LABELS = ['Linear', 'Ease In', 'Ease Out', 'Ease In-Out']
