@@ -17,6 +17,42 @@ function createWindow(): void {
     }
   })
 
+  let forceClose = false
+
+  mainWindow.on('close', async (e) => {
+    if (forceClose) return
+    e.preventDefault()
+    try {
+      const isDirty = await mainWindow!.webContents.executeJavaScript(
+        'window.__getIsDirty ? window.__getIsDirty() : false'
+      )
+      if (!isDirty) {
+        forceClose = true
+        mainWindow!.close()
+        return
+      }
+      const { response } = await dialog.showMessageBox(mainWindow!, {
+        type: 'warning',
+        buttons: ['Save', "Don't Save", 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        message: 'You have unsaved changes.',
+        detail: 'Do you want to save before closing?'
+      })
+      if (response === 0) {
+        await mainWindow!.webContents.executeJavaScript('window.__saveProject ? window.__saveProject() : Promise.resolve()')
+        forceClose = true
+        mainWindow!.close()
+      } else if (response === 1) {
+        forceClose = true
+        mainWindow!.close()
+      }
+    } catch {
+      forceClose = true
+      mainWindow!.close()
+    }
+  })
+
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {

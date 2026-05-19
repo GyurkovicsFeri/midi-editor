@@ -75,6 +75,9 @@ export function MenuBar() {
 
   const handleLoadProject = useCallback(async () => {
     setOpenMenu(null)
+    if (useProjectStore.getState().isDirty) {
+      if (!window.confirm('You have unsaved changes. Discard and load a new project?')) return
+    }
     const result = await loadProjectFile()
     if (result) {
       useProjectStore.setState({

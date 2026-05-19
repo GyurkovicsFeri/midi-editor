@@ -8,13 +8,38 @@ import { SongSettings } from './components/dialogs/SongSettings'
 import { SetlistManager } from './components/dialogs/SetlistManager'
 import { HelpDialog } from './components/dialogs/HelpDialog'
 import { useUIStore } from './stores/ui-store'
+import { useProjectStore } from './stores/project-store'
 import { useMidiOutputStore } from './stores/midi-output-store'
 import { useMidiPlayback } from './hooks/useMidiPlayback'
 import { useMetronome } from './hooks/useMetronome'
+import { downloadProjectFile } from './lib/project-file-io'
 
 export function App() {
   useEffect(() => {
     useMidiOutputStore.getState().initialize()
+
+    ;(window as any).__getIsDirty = () => useProjectStore.getState().isDirty
+    ;(window as any).__saveProject = async () => {
+      const state = useProjectStore.getState()
+      const filename = state.projectFileName || 'untitled'
+      await downloadProjectFile(state.project, filename)
+      if (!state.projectFileName) state.setProjectFileName(filename)
+      state.markClean()
+    }
+    return () => {
+      delete (window as any).__getIsDirty
+      delete (window as any).__saveProject
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (useProjectStore.getState().isDirty) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
   }, [])
 
   useMidiPlayback()
