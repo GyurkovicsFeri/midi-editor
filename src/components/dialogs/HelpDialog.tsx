@@ -45,7 +45,7 @@ export function HelpDialog() {
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Quick Start</h3>
             <ol className="space-y-2 list-decimal list-inside text-gray-300">
               <li>Open <strong className="text-gray-100">Song Settings</strong> (⚙ button in the toolbar) and add your devices.</li>
-              <li>For Neural DSP Quad Cortex devices, define your presets and scene names in the device edit panel.</li>
+              <li>For Quad Cortex and Helix LT devices, define your presets and scene/snapshot names in the device edit panel.</li>
               <li>Double-click a lane in the timeline to place an event, or drag a command from the sidebar.</li>
               <li>Double-click an event block to open the editor and choose a command, position, and parameters.</li>
               <li>Export via <strong className="text-gray-100">File → Export MIDI</strong> and load the <code className="text-xs bg-gray-900 px-1 py-0.5 rounded">.mid</code> file onto your stage MIDI player.</li>
@@ -110,6 +110,61 @@ export function HelpDialog() {
               </tbody>
             </table>
 
+            <h4 className="text-xs font-semibold text-gray-300 mb-2">Line 6 Helix LT</h4>
+            <table className="w-full text-xs mb-4">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-1 pr-4 text-left text-gray-500 font-normal">Command</th>
+                  <th className="py-1 pr-4 text-left text-gray-500 font-normal">MIDI Messages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Snapshot Change', 'CC#69 = 0–2 (A–C)'],
+                  ['Preset Change', 'CC#0 (bank) + CC#32 (setlist) + PC'],
+                  ['Tap Tempo', 'CC#64 = 127'],
+                  ['Tuner Toggle', 'CC#68 = 127'],
+                  ['All Bypass Toggle', 'CC#70 = 0 (off) / 127 (on)'],
+                  ['Next / Prev Snapshot', 'CC#69 = 9 / 8'],
+                  ['Expression Pedal 1', 'CC#1 = 0–127 (sweep)'],
+                  ['Expression Pedal 2', 'CC#2 = 0–127 (sweep)'],
+                  ['Footswitch 1–8', 'CC#49–56 = 127'],
+                ].map(([cmd, msg]) => (
+                  <tr key={cmd} className="border-b border-gray-700/50">
+                    <td className="py-1.5 pr-4 text-gray-200">{cmd}</td>
+                    <td className="py-1.5 text-gray-400 font-mono">{msg}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <h4 className="text-xs font-semibold text-gray-300 mb-2">Boss VE-500 Vocal Performer</h4>
+            <p className="text-xs text-gray-500 mb-2">CC numbers for effect toggles are typical defaults. Remap in the VE-500 ASSIGN menu to match.</p>
+            <table className="w-full text-xs mb-4">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-1 pr-4 text-left text-gray-500 font-normal">Command</th>
+                  <th className="py-1 pr-4 text-left text-gray-500 font-normal">MIDI Messages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Preset Change', 'CC#0 (bank: 0=User, 1=Factory) + CC#32=0 + PC'],
+                  ['Harmony On / Off', 'CC#7 = 127 / 0'],
+                  ['FX/Enhance On / Off', 'CC#16 = 127 / 0'],
+                  ['Dynamics On / Off', 'CC#17 = 127 / 0'],
+                  ['Delay On / Off', 'CC#18 = 127 / 0'],
+                  ['Reverb On / Off', 'CC#19 = 127 / 0'],
+                  ['Expression Pedal', 'CC#11 = 0–127 (sweep)'],
+                ].map(([cmd, msg]) => (
+                  <tr key={cmd} className="border-b border-gray-700/50">
+                    <td className="py-1.5 pr-4 text-gray-200">{cmd}</td>
+                    <td className="py-1.5 text-gray-400 font-mono">{msg}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
             <h4 className="text-xs font-semibold text-gray-300 mb-2">Darkglass Alpha Omega Photon</h4>
             <table className="w-full text-xs mb-2">
               <thead>
@@ -146,15 +201,15 @@ export function HelpDialog() {
 
           {/* Named Presets & Scenes */}
           <section>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Named Presets &amp; Scenes (QC)</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Named Presets &amp; Scenes</h3>
             <p className="text-gray-400 mb-3">
-              For Quad Cortex devices you can define friendly preset and scene names so the event editor shows dropdowns instead of raw numbers.
+              For Quad Cortex and Helix LT devices you can define friendly preset and scene/snapshot names so the event editor shows dropdowns instead of raw numbers.
             </p>
             <ol className="space-y-2 list-decimal list-inside text-gray-400 mb-3">
               <li>Open <strong className="text-gray-200">Song Settings</strong> and click the device row to enter edit mode.</li>
               <li>In the <strong className="text-gray-200">PRESETS</strong> section, click <strong className="text-gray-200">+ Add Preset</strong> for each preset you use.</li>
               <li>Set the preset name, program number (0–127), bank (0 or 1), and setlist index (0 = Factory, 1 = My Presets, 2–12 = User).</li>
-              <li>Click the arrow on a preset row to expand it and enter optional scene names for scenes A–H.</li>
+              <li>Click the arrow on a preset row to expand it and enter optional scene names (A–H for QC, A–C for Helix LT).</li>
             </ol>
             <p className="text-gray-400">
               Once presets are defined, the event editor shows a <strong className="text-gray-200">Preset</strong> dropdown for Preset Change events and a <strong className="text-gray-200">Scene</strong> dropdown (A–H) for Scene Change events. Selecting a preset automatically fills in the bank, setlist, and program number and sets the event label to the preset name.
