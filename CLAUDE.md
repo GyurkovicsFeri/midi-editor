@@ -325,15 +325,7 @@ CC assignments are **user-configurable** in the VE-500's ASSIGN menu. The singer
 2. `CC#32 value 0` → Bank LSB (always 0)
 3. `PC 0–98` → Preset number (User) or `PC 0–49` (Factory)
 
-**Effect toggle defaults** (CC numbers are typical — remap in VE-500 ASSIGN menu to match):
-
-| CC# | Control | Values |
-|-----|---------|--------|
-| 7 | Harmony On/Off | 0=off, 127=on |
-| 16 | FX/Enhance On/Off | 0=off, 127=on |
-| 17 | Dynamics On/Off | 0=off, 127=on |
-| 18 | Delay On/Off | 0=off, 127=on |
-| 19 | Reverb On/Off | 0=off, 127=on |
+**8 configurable assign slots** — CC#1 through CC#8, each sends a value 0–127. The singer names each assign in Song Settings (e.g., "Harmony", "Reverb") and must match the CC# assignments in the VE-500 ASSIGN menu. The `assignNames` array on `MidiDevice` stores these nicknames (displayed in sidebar and event labels).
 
 **Expression pedal:** `CC#11` — same sweep mechanism as QC/Helix expression pedals.
 

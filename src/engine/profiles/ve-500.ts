@@ -1,5 +1,25 @@
 import type { DeviceProfile } from '../../types/device'
 
+function makeAssignCommand(n: number): {
+  id: string
+  name: string
+  description: string
+  messages: Array<{ type: 'cc'; controller: number; valueParam: string }>
+  parameters: Array<{ name: string; label: string; min: number; max: number; defaultValue: number }>
+} {
+  return {
+    id: `ve500-assign-${n}`,
+    name: `Assign ${n}`,
+    description: `Send CC#${n} with a value (0–127). Set a nickname in Song Settings. Match CC#${n} in VE-500 ASSIGN menu.`,
+    messages: [
+      { type: 'cc', controller: n, valueParam: 'value' }
+    ],
+    parameters: [
+      { name: 'value', label: 'Value (0=off, 127=on)', min: 0, max: 127, defaultValue: 127 }
+    ]
+  }
+}
+
 export const ve500Profile: DeviceProfile = {
   id: 've-500',
   name: 'Boss VE-500 Vocal Performer',
@@ -21,86 +41,14 @@ export const ve500Profile: DeviceProfile = {
         { name: 'bank', label: 'Bank (0=User, 1=Factory)', min: 0, max: 1, defaultValue: 0 }
       ]
     },
-    {
-      id: 've500-harmony-on',
-      name: 'Harmony On',
-      description: 'Enable harmony effect (CC#7 value 127). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 7, value: 127 }
-      ]
-    },
-    {
-      id: 've500-harmony-off',
-      name: 'Harmony Off',
-      description: 'Disable harmony effect (CC#7 value 0). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 7, value: 0 }
-      ]
-    },
-    {
-      id: 've500-reverb-on',
-      name: 'Reverb On',
-      description: 'Enable reverb (CC#19 value 127). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 19, value: 127 }
-      ]
-    },
-    {
-      id: 've500-reverb-off',
-      name: 'Reverb Off',
-      description: 'Disable reverb (CC#19 value 0). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 19, value: 0 }
-      ]
-    },
-    {
-      id: 've500-delay-on',
-      name: 'Delay On',
-      description: 'Enable delay (CC#18 value 127). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 18, value: 127 }
-      ]
-    },
-    {
-      id: 've500-delay-off',
-      name: 'Delay Off',
-      description: 'Disable delay (CC#18 value 0). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 18, value: 0 }
-      ]
-    },
-    {
-      id: 've500-dynamics-on',
-      name: 'Dynamics On',
-      description: 'Enable dynamics/compression (CC#17 value 127). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 17, value: 127 }
-      ]
-    },
-    {
-      id: 've500-dynamics-off',
-      name: 'Dynamics Off',
-      description: 'Disable dynamics/compression (CC#17 value 0). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 17, value: 0 }
-      ]
-    },
-    {
-      id: 've500-fx-on',
-      name: 'FX/Enhance On',
-      description: 'Enable FX/Enhance block (CC#16 value 127). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 16, value: 127 }
-      ]
-    },
-    {
-      id: 've500-fx-off',
-      name: 'FX/Enhance Off',
-      description: 'Disable FX/Enhance block (CC#16 value 0). Match CC# in VE-500 ASSIGN menu.',
-      messages: [
-        { type: 'cc', controller: 16, value: 0 }
-      ]
-    },
+    makeAssignCommand(1),
+    makeAssignCommand(2),
+    makeAssignCommand(3),
+    makeAssignCommand(4),
+    makeAssignCommand(5),
+    makeAssignCommand(6),
+    makeAssignCommand(7),
+    makeAssignCommand(8),
     {
       id: 've500-exp-pedal',
       name: 'Expression Pedal Sweep',

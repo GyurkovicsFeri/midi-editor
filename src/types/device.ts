@@ -60,6 +60,7 @@ export interface MidiDevice {
   midiChannel: number
   color: string
   presets: Preset[]
+  assignNames?: string[]  // VE-500: nicknames for Assign 1–8 (CC#1–8)
 }
 
 export function resolveEventColor(

@@ -57,18 +57,24 @@ export function DevicePanel() {
               </span>
             </div>
             <div className="space-y-0.5">
-              {profile.commands.map((cmd) => (
+              {profile.commands.map((cmd) => {
+                // VE-500 assign commands: show nickname if set
+                const assignMatch = cmd.id.match(/^ve500-assign-(\d+)$/)
+                const displayName = assignMatch
+                  ? (device.assignNames?.[parseInt(assignMatch[1], 10) - 1] || cmd.name)
+                  : cmd.name
+                return (
                 <div key={cmd.id} className="flex items-center group">
                   <button
                     draggable
-                    onClick={() => handleAddCommand(device.id, cmd.id, cmd.name)}
+                    onClick={() => handleAddCommand(device.id, cmd.id, displayName)}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(
                         'application/x-midi-command',
                         JSON.stringify({
                           deviceId: device.id,
                           commandId: cmd.id,
-                          label: cmd.name,
+                          label: displayName,
                           color: resolveEventColor(cmd.id, device)
                         })
                       )
@@ -79,7 +85,7 @@ export function DevicePanel() {
                       hover:bg-gray-700 rounded-l transition-colors cursor-grab active:cursor-grabbing"
                     title={cmd.description}
                   >
-                    {cmd.name}
+                    {displayName}
                   </button>
                   {getPortForDevice(device.id) && (
                     <button
@@ -105,7 +111,8 @@ export function DevicePanel() {
                     </button>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )

@@ -229,6 +229,38 @@ export function SongSettings() {
                               />
                             </div>
                           </div>
+                          {/* VE-500 Assigns section */}
+                          {device.profileId === 've-500' && (
+                            <div className="border-t border-gray-700 pt-2 mt-1">
+                              <span className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                Assign Nicknames <span className="font-normal normal-case text-gray-600">(match CC#1–8 in VE-500 ASSIGN menu)</span>
+                              </span>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {Array.from({ length: 8 }, (_, i) => {
+                                  const assignNames = device.assignNames ?? []
+                                  return (
+                                    <div key={i} className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-gray-500 w-8 shrink-0 text-right">CC#{i + 1}</span>
+                                      <input
+                                        type="text"
+                                        value={assignNames[i] ?? ''}
+                                        onChange={(e) => {
+                                          const next = [...(device.assignNames ?? Array(8).fill(''))]
+                                          while (next.length < 8) next.push('')
+                                          next[i] = e.target.value
+                                          updateDevice(device.id, { assignNames: next })
+                                        }}
+                                        placeholder={`Assign ${i + 1}`}
+                                        className="flex-1 bg-gray-900 text-[10px] text-gray-300 rounded px-2 py-1
+                                          border border-gray-700 focus:border-blue-500 focus:outline-none min-w-0"
+                                      />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
                           {/* QC Presets section */}
                           {device.profileId === 'quad-cortex' && (
                             <div className="border-t border-gray-700 pt-2 mt-1">

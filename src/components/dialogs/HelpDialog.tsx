@@ -139,7 +139,7 @@ export function HelpDialog() {
             </table>
 
             <h4 className="text-xs font-semibold text-gray-300 mb-2">Boss VE-500 Vocal Performer</h4>
-            <p className="text-xs text-gray-500 mb-2">CC numbers for effect toggles are typical defaults. Remap in the VE-500 ASSIGN menu to match.</p>
+            <p className="text-xs text-gray-500 mb-2">8 configurable assign slots (CC#1–8). Set nicknames in Song Settings and match CC assignments in the VE-500 ASSIGN menu.</p>
             <table className="w-full text-xs mb-4">
               <thead>
                 <tr className="border-b border-gray-700">
@@ -150,11 +150,7 @@ export function HelpDialog() {
               <tbody>
                 {[
                   ['Preset Change', 'CC#0 (bank: 0=User, 1=Factory) + CC#32=0 + PC'],
-                  ['Harmony On / Off', 'CC#7 = 127 / 0'],
-                  ['FX/Enhance On / Off', 'CC#16 = 127 / 0'],
-                  ['Dynamics On / Off', 'CC#17 = 127 / 0'],
-                  ['Delay On / Off', 'CC#18 = 127 / 0'],
-                  ['Reverb On / Off', 'CC#19 = 127 / 0'],
+                  ['Assign 1–8', 'CC#1–8 = 0–127 (nicknames editable in Song Settings)'],
                   ['Expression Pedal', 'CC#11 = 0–127 (sweep)'],
                 ].map(([cmd, msg]) => (
                   <tr key={cmd} className="border-b border-gray-700/50">
