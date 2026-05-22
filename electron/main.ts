@@ -28,7 +28,7 @@ function createWindow(): void {
       )
       if (!isDirty) {
         forceClose = true
-        mainWindow!.close()
+        mainWindow!.destroy()
         return
       }
       const { response } = await dialog.showMessageBox(mainWindow!, {
@@ -42,14 +42,14 @@ function createWindow(): void {
       if (response === 0) {
         await mainWindow!.webContents.executeJavaScript('window.__saveProject ? window.__saveProject() : Promise.resolve()')
         forceClose = true
-        mainWindow!.close()
+        mainWindow!.destroy()
       } else if (response === 1) {
         forceClose = true
-        mainWindow!.close()
+        mainWindow!.destroy()
       }
     } catch {
       forceClose = true
-      mainWindow!.close()
+      mainWindow!.destroy()
     }
   })
 
