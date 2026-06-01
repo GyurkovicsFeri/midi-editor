@@ -44,6 +44,8 @@ interface ProjectState {
   updateAudioTrack: (trackId: string, changes: Partial<AudioTrack>) => void
   removeAudioTrack: (trackId: string) => void
 
+  updateAudioTrackAcrossAllSongs: (trackId: string, changes: Partial<AudioTrack>) => void
+
   addDevice: (profileId: string, name: string, midiChannel: number) => void
   updateDevice: (deviceId: string, changes: Partial<MidiDevice>) => void
   removeDevice: (deviceId: string) => void
@@ -149,6 +151,22 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       mutate((project) => {
         const song = project.songs.find((s) => s.id === project.activeSongId)
         if (song) song.audioTracks = song.audioTracks.filter((t) => t.id !== trackId)
+      })
+    },
+
+    updateAudioTrackAcrossAllSongs: (trackId, changes) => {
+      const state = get()
+      const nextSongs = state.project.songs.map((song) => {
+        const idx = song.audioTracks.findIndex((t) => t.id === trackId)
+        if (idx === -1) return song
+        const nextTracks = song.audioTracks.map((t) =>
+          t.id === trackId ? { ...t, ...changes } : t
+        )
+        return { ...song, audioTracks: nextTracks }
+      })
+      set({
+        project: { ...state.project, songs: nextSongs },
+        isDirty: true,
       })
     },
 

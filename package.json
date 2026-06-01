@@ -72,6 +72,7 @@
     "vite": "^7.3.3"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@tonejs/midi": "^2.0.28",
     "immer": "^11.1.7",
     "jszip": "^3.10.1",

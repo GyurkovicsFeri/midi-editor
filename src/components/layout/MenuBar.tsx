@@ -3,6 +3,7 @@ import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { exportSongToMidi, exportSongToMidiFormat0, batchExportToZip, downloadMidiFile } from '../../lib/midi-file-io'
 import { downloadProjectFile, loadProjectFile } from '../../lib/project-file-io'
+import { compressToMp3, isAlreadyMp3 } from '../../engine/audio-compress'
 
 export function MenuBar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
@@ -15,6 +16,7 @@ export function MenuBar() {
   const devices = useProjectStore((s) => s.setlistDevices())
   const setSongProperty = useProjectStore((s) => s.setSongProperty)
   const addAudioTrack = useProjectStore((s) => s.addAudioTrack)
+  const updateAudioTrackAcrossAllSongs = useProjectStore((s) => s.updateAudioTrackAcrossAllSongs)
   const markClean = useProjectStore((s) => s.markClean)
   const projectFileName = useProjectStore((s) => s.projectFileName)
   const setProjectFileName = useProjectStore((s) => s.setProjectFileName)
@@ -98,14 +100,27 @@ export function MenuBar() {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      const filePath = URL.createObjectURL(file)
-      const fileData = await file.arrayBuffer()
+      const rawData = await file.arrayBuffer()
+
+      let fileData: ArrayBuffer
+      let fileName: string
+      if (isAlreadyMp3(file.name)) {
+        fileData = rawData
+        fileName = file.name
+      } else {
+        const compressed = await compressToMp3(rawData)
+        fileData = compressed.data
+        fileName = file.name.replace(/\.[^/.]+$/, '.mp3')
+      }
+
+      const blob = new Blob([fileData], { type: 'audio/mpeg' })
+      const filePath = URL.createObjectURL(blob)
       const trackColors = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899']
       addAudioTrack({
         name: file.name.replace(/\.[^/.]+$/, ''),
         filePath,
         fileData,
-        fileName: file.name,
+        fileName,
         offsetMs: 0,
         volume: 1,
         muted: false,
@@ -128,10 +143,56 @@ export function MenuBar() {
     input.click()
   }, [addAudioTrack, setSongProperty, song.bpm, song.timeSignature, song.audioTracks.length, song.totalBars])
 
+  const [compressProgress, setCompressProgress] = useState<{ current: number; total: number; name: string } | null>(null)
+
+  const handleCompressAllAudio = useCallback(async () => {
+    setOpenMenu(null)
+    const allTracks = project.songs.flatMap((s) => s.audioTracks)
+    const toConvert = allTracks.filter(
+      (t) => t.fileData && t.fileName && !isAlreadyMp3(t.fileName)
+    )
+    if (toConvert.length === 0) return
+
+    console.log(`[MP3 convert] Found ${allTracks.length} total tracks across ${project.songs.length} songs, ${toConvert.length} to convert:`,
+      toConvert.map((t) => ({ id: t.id, name: t.name, fileName: t.fileName, hasData: !!t.fileData }))
+    )
+
+    try {
+      for (let i = 0; i < toConvert.length; i++) {
+        const track = toConvert[i]
+        setCompressProgress({ current: i + 1, total: toConvert.length, name: track.name ?? track.fileName ?? '' })
+        await new Promise((r) => setTimeout(r, 0))
+        const { data } = await compressToMp3(track.fileData!)
+        const blob = new Blob([data], { type: 'audio/mpeg' })
+        const filePath = URL.createObjectURL(blob)
+        const newFileName = track.fileName!.replace(/\.[^/.]+$/, '.mp3')
+        updateAudioTrackAcrossAllSongs(track.id, {
+          fileData: data,
+          fileName: newFileName,
+          filePath,
+        })
+      }
+    } catch (err) {
+      console.error('Audio compression failed:', err)
+      alert('Audio compression failed. Check console for details.')
+    } finally {
+      setCompressProgress(null)
+    }
+  }, [project.songs, updateAudioTrackAcrossAllSongs])
+
+  const nonMp3TrackCount = project.songs
+    .flatMap((s) => s.audioTracks)
+    .filter((t) => t.fileData && t.fileName && !isAlreadyMp3(t.fileName)).length
+
   const menuItems = [
     { label: 'Load Project...', action: handleLoadProject, shortcut: 'Ctrl+O' },
     { label: 'Save Project', action: handleSaveProject, shortcut: 'Ctrl+S' },
     { label: 'Load Reference Audio...', action: handleLoadAudio },
+    ...(nonMp3TrackCount > 0 ? [{
+      label: compressProgress ? `Converting ${compressProgress.current}/${compressProgress.total}...` : `Convert All Audio to MP3 (${nonMp3TrackCount})`,
+      action: handleCompressAllAudio,
+      disabled: !!compressProgress
+    }] : []),
     { label: 'Export MIDI (Format 1, multi-track)...', action: handleExportMidi, shortcut: 'Ctrl+E' },
     { label: 'Export MIDI (Format 0, single-track)...', action: handleExportMidiFormat0, shortcut: 'Ctrl+Shift+E' },
     { label: 'Export All Songs as ZIP...', action: handleBatchExport }
@@ -193,16 +254,34 @@ export function MenuBar() {
       >
         Help
       </button>
+      {compressProgress && (
+        <div className="absolute top-full left-0 mt-1 bg-blue-900/90 border border-blue-500/50 rounded-md shadow-xl py-2 px-3 min-w-[240px] z-50">
+          <div className="text-xs text-blue-100 mb-1.5">
+            Converting to MP3 ({compressProgress.current}/{compressProgress.total}): {compressProgress.name}
+          </div>
+          <div className="h-1.5 bg-blue-950 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-400 rounded-full transition-all duration-300"
+              style={{ width: `${(compressProgress.current / compressProgress.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
       {openMenu === 'File' && (
         <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-xl py-1 min-w-[220px] z-50">
           {menuItems.map((item, i) => (
             <button
               key={i}
+              disabled={'disabled' in item && !!item.disabled}
               onClick={(e) => {
                 e.stopPropagation()
-                item.action()
+                if (!('disabled' in item && item.disabled)) item.action()
               }}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 flex items-center"
+              className={`w-full text-left px-3 py-1.5 text-xs flex items-center ${
+                'disabled' in item && item.disabled
+                  ? 'text-gray-500 cursor-not-allowed'
+                  : 'text-gray-200 hover:bg-gray-700'
+              }`}
             >
               <span className="flex-1">{item.label}</span>
               {item.shortcut && (

@@ -207,13 +207,27 @@ function WaveformTrack({
 
   useEffect(() => {
     const ws = wavesurferRef.current
-    if (!ws || isPlaying) return
+    if (!ws) return
     const duration = ws.getDuration()
     if (duration <= 0) return
     const audioTime = currentTimeSeconds + track.offsetMs / 1000
     const clampedTime = Math.max(0, Math.min(audioTime, duration))
-    ws.setTime(clampedTime)
-  }, [currentTimeSeconds, track.offsetMs, isPlaying])
+
+    if (isPlaying) {
+      if (!track.muted && audioTime >= 0 && audioTime < duration) {
+        if (!ws.isPlaying()) {
+          ws.setTime(clampedTime)
+          ws.play()
+        }
+      } else {
+        if (ws.isPlaying()) {
+          ws.pause()
+        }
+      }
+    } else {
+      ws.setTime(clampedTime)
+    }
+  }, [currentTimeSeconds, track.offsetMs, isPlaying, track.muted])
 
   return (
     <div className="h-[72px] border-b border-gray-700/30 flex">
