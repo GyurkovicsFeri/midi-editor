@@ -153,10 +153,6 @@ export function MenuBar() {
     )
     if (toConvert.length === 0) return
 
-    console.log(`[MP3 convert] Found ${allTracks.length} total tracks across ${project.songs.length} songs, ${toConvert.length} to convert:`,
-      toConvert.map((t) => ({ id: t.id, name: t.name, fileName: t.fileName, hasData: !!t.fileData }))
-    )
-
     try {
       for (let i = 0; i < toConvert.length; i++) {
         const track = toConvert[i]
