@@ -4,8 +4,9 @@
     {
       "name": "midi-editor",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && nvm use 20 && npx vite --port 5173"],
-      "port": 5173
+      "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && nvm use 20 && npx vite --port $PORT"],
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }

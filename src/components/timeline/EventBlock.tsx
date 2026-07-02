@@ -8,6 +8,7 @@ interface EventBlockProps {
   pixelsPerBeat: number
   beatsPerBar: number
   isSelected: boolean
+  stackCount?: number
   onClick: (id: string, multi: boolean) => void
   onDoubleClick: (id: string) => void
   onContextMenu: (id: string, x: number, y: number) => void
@@ -22,6 +23,7 @@ export function EventBlock({
   pixelsPerBeat,
   beatsPerBar,
   isSelected,
+  stackCount = 1,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -121,8 +123,18 @@ export function EventBlock({
         e.stopPropagation()
         onContextMenu(event.id, e.clientX, e.clientY)
       }}
-      title={`${event.label} — Bar ${event.position.bar}, Beat ${event.position.beat}`}
+      title={`${event.label} — Bar ${event.position.bar}, Beat ${event.position.beat}${
+        stackCount > 1 ? ` (+${stackCount - 1} more here)` : ''
+      }`}
     >
+      {stackCount > 1 && (
+        <span
+          className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-gray-900
+            text-[9px] leading-4 text-center text-white border border-white/40 shadow z-20"
+        >
+          ×{stackCount}
+        </span>
+      )}
       {isSweep && (
         <svg className="absolute inset-0 w-full h-full rounded pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
           {(() => {

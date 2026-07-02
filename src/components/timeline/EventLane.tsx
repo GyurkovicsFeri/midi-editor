@@ -54,6 +54,15 @@ export function EventLane({
   const pixelsPerBar = pixelsPerBeat * beatsPerBar
   const [isDragOver, setIsDragOver] = useState(false)
 
+  const stackCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const event of events) {
+      const key = `${event.position.bar}.${event.position.beat}.${event.position.tick}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return counts
+  }, [events])
+
   const handleLaneDoubleClick = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const clickX = e.clientX - rect.left + scrollX
@@ -130,6 +139,7 @@ export function EventLane({
               pixelsPerBeat={pixelsPerBeat}
               beatsPerBar={beatsPerBar}
               isSelected={selectedEventIds.has(event.id)}
+              stackCount={stackCounts.get(`${event.position.bar}.${event.position.beat}.${event.position.tick}`) ?? 1}
               snapMode={snapMode}
               onClick={onEventClick}
               onDoubleClick={onEventDoubleClick}
