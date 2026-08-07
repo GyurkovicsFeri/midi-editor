@@ -2,7 +2,7 @@ import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { useMidiOutputStore } from '../../stores/midi-output-store'
 import { getProfile } from '../../engine/device-protocol'
-import { resolveEventColor } from '../../types/device'
+import { resolveEventColor, resolveCommandDisplayName } from '../../types/device'
 import type { MidiEvent } from '../../types/midi'
 
 export function DevicePanel() {
@@ -58,11 +58,7 @@ export function DevicePanel() {
             </div>
             <div className="space-y-0.5">
               {profile.commands.map((cmd) => {
-                // VE-500 assign commands: show nickname if set
-                const assignMatch = cmd.id.match(/^ve500-assign-(\d+)$/)
-                const displayName = assignMatch
-                  ? (device.assignNames?.[parseInt(assignMatch[1], 10) - 1] || cmd.name)
-                  : cmd.name
+                const displayName = resolveCommandDisplayName(cmd, device)
                 return (
                 <div key={cmd.id} className="flex items-center group">
                   <button
@@ -96,7 +92,7 @@ export function DevicePanel() {
                           deviceId: device.id,
                           commandId: cmd.id,
                           position: { bar: 1, beat: 1, tick: 0 },
-                          label: cmd.name,
+                          label: displayName,
                           parameters: {}
                         }
                         sendNow(device.id, event)

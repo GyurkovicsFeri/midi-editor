@@ -12,7 +12,7 @@ import { EventEditor } from '../dialogs/EventEditor'
 import { ContextMenu, type MenuItem } from '../common/ContextMenu'
 import type { MusicalPosition } from '../../types/midi'
 import { TICKS_PER_BEAT } from '../../types/midi'
-import { resolveEventColor } from '../../types/device'
+import { resolveEventColor, resolveCommandDisplayName } from '../../types/device'
 
 const BASE_PIXELS_PER_BEAT = 40
 
@@ -276,24 +276,27 @@ export function Timeline() {
       setContextMenu({
         x,
         y,
-        items: profile.commands.map((cmd) => ({
-          label: `Add ${cmd.name}`,
-          onClick: () => {
-            const params: Record<string, number> = {}
-            cmd.parameters?.forEach((p) => {
-              params[p.name] = p.defaultValue
-            })
-            addEvent({
-              type: 'device-command',
-              deviceId,
-              commandId: cmd.id,
-              position: { bar, beat: 1, tick: 0 },
-              label: cmd.name,
-              color: resolveEventColor(cmd.id, device, params.scene),
-              parameters: params
-            })
+        items: profile.commands.map((cmd) => {
+          const displayName = resolveCommandDisplayName(cmd, device)
+          return {
+            label: `Add ${displayName}`,
+            onClick: () => {
+              const params: Record<string, number> = {}
+              cmd.parameters?.forEach((p) => {
+                params[p.name] = p.defaultValue
+              })
+              addEvent({
+                type: 'device-command',
+                deviceId,
+                commandId: cmd.id,
+                position: { bar, beat: 1, tick: 0 },
+                label: displayName,
+                color: resolveEventColor(cmd.id, device, params.scene),
+                parameters: params
+              })
+            }
           }
-        }))
+        })
       })
     },
     [devices, addEvent]

@@ -1,6 +1,6 @@
 import type { Song } from '../../types/project'
 import type { MidiDevice, DeviceProfile } from '../../types/device'
-import { resolveEventColor } from '../../types/device'
+import { resolveEventColor, resolveCommandDisplayName } from '../../types/device'
 import { isSweepCommand, EASING_LABELS, applyEasing } from '../../engine/sweep'
 
 export interface EventRowDraft {
@@ -52,7 +52,7 @@ export function EventCommandFields({ device, profile, song, row, onChange }: Eve
             })
             const newLabel = isSweepCommand(newId)
               ? `Exp ${newId === 'qc-exp-pedal-1' ? '1' : '2'}: ${newParams.startValue ?? 0}→${newParams.endValue ?? 127}`
-              : newCmd.name
+              : resolveCommandDisplayName(newCmd, device)
             onChange({
               commandId: newId,
               label: newLabel,
@@ -65,7 +65,7 @@ export function EventCommandFields({ device, profile, song, row, onChange }: Eve
         >
           {profile.commands.map((cmd) => (
             <option key={cmd.id} value={cmd.id}>
-              {cmd.name}
+              {resolveCommandDisplayName(cmd, device)}
             </option>
           ))}
         </select>

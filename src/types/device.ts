@@ -75,3 +75,18 @@ export function resolveEventColor(
   }
   return device.color
 }
+
+const VE500_ASSIGN_ID = /^ve500-assign-(\d+)$/
+
+/**
+ * VE-500 assign commands are user-nameable (CC#1–8 match whatever the singer
+ * wired up in the ASSIGN menu); every other command just uses its own name.
+ */
+export function resolveCommandDisplayName(command: DeviceCommand, device: MidiDevice): string {
+  const assignMatch = command.id.match(VE500_ASSIGN_ID)
+  if (assignMatch) {
+    const nickname = device.assignNames?.[parseInt(assignMatch[1], 10) - 1]
+    if (nickname) return nickname
+  }
+  return command.name
+}

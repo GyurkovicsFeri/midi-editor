@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { getProfile } from '../../engine/device-protocol'
+import { resolveCommandDisplayName } from '../../types/device'
 import { EventEditor } from '../dialogs/EventEditor'
 import type { MidiEvent, MusicalPosition } from '../../types/midi'
 
@@ -297,7 +298,7 @@ export function EventListView() {
 
                     {/* Command */}
                     <td className="px-4 py-2 text-gray-400">
-                      {command?.name ?? event.commandId ?? '—'}
+                      {command && device ? resolveCommandDisplayName(command, device) : event.commandId ?? '—'}
                     </td>
 
                     {/* Parameters */}
