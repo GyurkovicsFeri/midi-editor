@@ -7,6 +7,13 @@ import { positionToTotalTicks } from '../engine/clock'
 import { TICKS_PER_BEAT } from '../types/midi'
 import { isSweepCommand, expandSweepToMessages } from '../engine/sweep'
 
+// Latency compensation: shift a device's messages earlier by its latencyCompensationMs,
+// converted to midi-writer ticks (128 PPQ) at the song's tempo. Clamped so nothing goes below tick 0.
+function latencyOffsetScaledTicks(device: MidiDevice, bpm: number): number {
+  const ms = device.latencyCompensationMs ?? 0
+  return Math.max(0, Math.round((ms / 1000) * (bpm / 60) * 128))
+}
+
 export function exportSongToMidi(
   song: Song,
   devices: MidiDevice[],
@@ -53,6 +60,13 @@ export function exportSongToMidi(
         for (const msg of rawMessages) {
           tickedMessages.push({ scaledTick, msg })
         }
+      }
+    }
+
+    const latencyOffset = latencyOffsetScaledTicks(device, song.bpm)
+    if (latencyOffset > 0) {
+      for (const msg of tickedMessages) {
+        msg.scaledTick = Math.max(0, msg.scaledTick - latencyOffset)
       }
     }
 
@@ -123,19 +137,30 @@ export function exportSongToMidiFormat0(
         positionToTotalTicks(b.position, beatsPerBar)
       )
 
+    const deviceMessages: TickedMsg[] = []
+
     for (const event of deviceEvents) {
       if (event.commandId && isSweepCommand(event.commandId)) {
-        allMessages.push(...expandSweepToMessages(event, device, profile, beatsPerBar))
+        deviceMessages.push(...expandSweepToMessages(event, device, profile, beatsPerBar))
       } else {
         const scaledTick = Math.round(
           positionToTotalTicks(event.position, beatsPerBar) * scaleFactor
         )
         const rawMessages = resolveEventToRawMidi(event, device, profile)
         for (const msg of rawMessages) {
-          allMessages.push({ scaledTick, msg })
+          deviceMessages.push({ scaledTick, msg })
         }
       }
     }
+
+    const latencyOffset = latencyOffsetScaledTicks(device, song.bpm)
+    if (latencyOffset > 0) {
+      for (const msg of deviceMessages) {
+        msg.scaledTick = Math.max(0, msg.scaledTick - latencyOffset)
+      }
+    }
+
+    allMessages.push(...deviceMessages)
   }
 
   // Stable sort by tick — groups from the same event stay adjacent

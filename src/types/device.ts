@@ -61,6 +61,7 @@ export interface MidiDevice {
   color: string
   presets: Preset[]
   assignNames?: string[]  // VE-500: nicknames for Assign 1–8 (CC#1–8)
+  latencyCompensationMs?: number  // send this device's events this many ms early (export + live playback)
 }
 
 export function resolveEventColor(

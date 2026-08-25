@@ -88,10 +88,12 @@ export function useMidiPlayback() {
 
       for (const event of song.events) {
         if (sentEventsRef.current.has(event.id)) continue
-        const eventTick = positionToTotalTicks(event.position, beatsPerBar)
+        const device = devices.find((d) => d.id === event.deviceId)
+        if (!device) continue
+        // Latency compensation: fire this device's events early by its configured ms
+        const latencyTicks = ((device.latencyCompensationMs ?? 0) / 1000) * (song.bpm / 60) * TICKS_PER_BEAT
+        const eventTick = Math.max(0, positionToTotalTicks(event.position, beatsPerBar) - latencyTicks)
         if (eventTick > lastTick && eventTick <= currentTick) {
-          const device = devices.find((d) => d.id === event.deviceId)
-          if (!device) continue
           const port = useMidiOutputStore.getState().getPortForDevice(device.id)
           if (!port) continue
           const profile = getProfile(device.profileId, customProfiles)

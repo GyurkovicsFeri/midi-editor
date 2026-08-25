@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { useMidiOutputStore } from '../../stores/midi-output-store'
@@ -7,6 +7,45 @@ import type { Preset, Scene } from '../../types/device'
 import { DEFAULT_SCENE_COLORS } from '../../types/device'
 
 const SCENE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+
+const MAX_LATENCY_MS = 500
+
+function LatencyCompensationInput({
+  valueMs,
+  onCommit
+}: {
+  valueMs: number
+  onCommit: (ms: number) => void
+}) {
+  const [draft, setDraft] = useState(String(valueMs))
+  const focused = useRef(false)
+  useEffect(() => {
+    if (!focused.current) setDraft(String(valueMs))
+  }, [valueMs])
+
+  const commit = () => {
+    focused.current = false
+    const parsed = Math.max(0, Math.min(MAX_LATENCY_MS, parseInt(draft) || 0))
+    setDraft(String(parsed))
+    onCommit(parsed)
+  }
+
+  return (
+    <input
+      type="number"
+      min={0}
+      max={MAX_LATENCY_MS}
+      value={draft}
+      onFocus={() => { focused.current = true }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      className="w-16 bg-gray-800 text-sm text-gray-200 rounded px-2 py-1.5 text-center
+        border border-gray-700 focus:border-blue-500 focus:outline-none"
+      title="Send this device's events this many milliseconds early to compensate for switching latency"
+    />
+  )
+}
 
 export function SongSettings() {
   const song = useProjectStore((s) => s.activeSong())
@@ -229,6 +268,19 @@ export function SongSettings() {
                               />
                             </div>
                           </div>
+                          {/* Latency compensation */}
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-1">Latency comp. (ms)</label>
+                              <LatencyCompensationInput
+                                valueMs={device.latencyCompensationMs ?? 0}
+                                onCommit={(ms) => updateDevice(device.id, { latencyCompensationMs: ms })}
+                              />
+                            </div>
+                            <p className="text-[10px] text-gray-600 flex-1 self-end pb-1">
+                              Events for this device are sent this many ms early (export and live playback), so the new sound is ready by the downbeat.
+                            </p>
+                          </div>
                           {/* VE-500 Assigns section */}
                           {device.profileId === 've-500' && (
                             <div className="border-t border-gray-700 pt-2 mt-1">
@@ -423,6 +475,9 @@ export function SongSettings() {
                             {profiles.find((p) => p.id === device.profileId)?.name ?? device.profileId}
                           </span>
                           <span className="text-xs text-gray-500">Ch{device.midiChannel}</span>
+                          {(device.latencyCompensationMs ?? 0) > 0 && (
+                            <span className="text-xs text-gray-500" title="Latency compensation">−{device.latencyCompensationMs}ms</span>
+                          )}
                           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current text-gray-600">
                             <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L3.463 11.098a.25.25 0 00-.064.108l-.563 1.97 1.971-.564a.25.25 0 00.108-.064l8.61-8.61a.25.25 0 000-.353L12.427 2.488z" />
                           </svg>
