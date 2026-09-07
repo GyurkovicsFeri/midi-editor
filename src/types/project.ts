@@ -46,4 +46,7 @@ export interface Project {
   setlist: Setlist
   customProfiles: DeviceProfile[]
   activeSongId: string
+  // Bake QC tap-tempo (CC#44 taps one beat apart) into Format 0 / ZIP exports —
+  // sets the Quad Cortex BPM from the file without relying on MIDI clock
+  embedTapTempo?: boolean
 }

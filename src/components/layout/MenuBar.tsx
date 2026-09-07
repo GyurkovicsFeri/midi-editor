@@ -20,6 +20,8 @@ export function MenuBar() {
   const markClean = useProjectStore((s) => s.markClean)
   const projectFileName = useProjectStore((s) => s.projectFileName)
   const setProjectFileName = useProjectStore((s) => s.setProjectFileName)
+  const embedTapTempo = useProjectStore((s) => s.project.embedTapTempo ?? false)
+  const setEmbedTapTempo = useProjectStore((s) => s.setEmbedTapTempo)
   const setSetlistOpen = useUIStore((s) => s.setSetlistOpen)
   const setHelpOpen = useUIStore((s) => s.setHelpOpen)
 
@@ -47,13 +49,15 @@ export function MenuBar() {
   const handleExportMidiFormat0 = useCallback(() => {
     setOpenMenu(null)
     try {
-      const dataUri = exportSongToMidiFormat0(song, devices, project.customProfiles)
+      const dataUri = exportSongToMidiFormat0(song, devices, project.customProfiles, {
+        embedTapTempo
+      })
       const safeName = song.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'song'
       downloadMidiFile(dataUri, `${safeName}_f0.mid`)
     } catch (e) {
       console.error('Export failed:', e)
     }
-  }, [song, devices, project.customProfiles])
+  }, [song, devices, project.customProfiles, embedTapTempo])
 
   const handleBatchExport = useCallback(async () => {
     setOpenMenu(null)
@@ -61,11 +65,13 @@ export function MenuBar() {
       const orderedSongs = project.setlist.songIds
         .map((id) => project.songs.find((s) => s.id === id))
         .filter(Boolean) as typeof project.songs
-      await batchExportToZip(orderedSongs, devices, project.customProfiles, project.setlist.name)
+      await batchExportToZip(orderedSongs, devices, project.customProfiles, project.setlist.name, {
+        embedTapTempo
+      })
     } catch (e) {
       console.error('Batch export failed:', e)
     }
-  }, [project, devices])
+  }, [project, devices, embedTapTempo])
 
   const handleSaveProject = useCallback(async () => {
     setOpenMenu(null)
@@ -191,7 +197,11 @@ export function MenuBar() {
     }] : []),
     { label: 'Export MIDI (Format 1, multi-track)...', action: handleExportMidi, shortcut: 'Ctrl+E' },
     { label: 'Export MIDI (Format 0, single-track)...', action: handleExportMidiFormat0, shortcut: 'Ctrl+Shift+E' },
-    { label: 'Export All Songs as ZIP...', action: handleBatchExport }
+    { label: 'Export All Songs as ZIP...', action: handleBatchExport },
+    {
+      label: `${embedTapTempo ? '✓ ' : ''}Embed Tap Tempo — QC & VE-500 (Format 0/ZIP)`,
+      action: () => setEmbedTapTempo(!embedTapTempo)
+    }
   ]
 
   useEffect(() => {

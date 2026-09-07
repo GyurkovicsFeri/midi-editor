@@ -71,6 +71,8 @@ interface ProjectState {
   setActiveSong: (songId: string) => void
   reorderSongs: (fromIdx: number, toIdx: number) => void
 
+  setEmbedTapTempo: (enabled: boolean) => void
+
   undo: () => void
   redo: () => void
   markClean: () => void
@@ -121,6 +123,12 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
 
     setlistDevices: () => get().project.setlist.devices,
+
+    setEmbedTapTempo: (enabled) => {
+      mutate((project) => {
+        project.embedTapTempo = enabled
+      })
+    },
 
     setSongProperty: (key, value) => {
       mutate((project) => {

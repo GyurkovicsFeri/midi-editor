@@ -152,6 +152,7 @@ export function HelpDialog() {
                   ['Preset Change', 'CC#0 (bank: 0=User, 1=Factory) + CC#32=0 + PC'],
                   ['Assign 1–8', 'CC#1–8 = 0–127 (nicknames editable in Song Settings)'],
                   ['Expression Pedal', 'CC#11 = 0–127 (sweep)'],
+                  ['Tap Tempo (embedded on export)', 'CC#80 press/release — set an ASSIGN: SOURCE=CC#80, TARGET=MASTER:TAP'],
                 ].map(([cmd, msg]) => (
                   <tr key={cmd} className="border-b border-gray-700/50">
                     <td className="py-1.5 pr-4 text-gray-200">{cmd}</td>
