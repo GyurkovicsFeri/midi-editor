@@ -213,6 +213,14 @@ export function HelpDialog() {
             </p>
           </section>
 
+          {/* Disabling tuner commands */}
+          <section>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Disabling Tuner or Tap Tempo per Device</h3>
+            <p className="text-gray-400">
+              If a device's tuner gets stuck or misbehaves, open <strong className="text-gray-200">Song Settings</strong>, click the device row, and untick <strong className="text-gray-200">Send tuner commands</strong>. That device's Tuner events are then never sent, in MIDI exports or live playback. Untick <strong className="text-gray-200">Send tap tempo</strong> the same way to stop all tap tempo to that device: no embedded taps at the start of exported songs, and its Tap Tempo events are never sent. Muted events stay in your songs (shown faded and struck through), so ticking the box again brings them back. Re-export your MIDI files after changing either switch.
+            </p>
+          </section>
+
           {/* Timeline Controls */}
           <section>
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Timeline Controls</h3>

@@ -4,6 +4,7 @@ import type { MidiDevice } from '../../types/device'
 import { resolveEventColor } from '../../types/device'
 import type { SnapMode } from '../../types/timeline'
 import { EventBlock } from './EventBlock'
+import { eventDisabledReason } from '../../engine/device-protocol'
 
 interface DragPayload {
   deviceId: string
@@ -140,6 +141,7 @@ export function EventLane({
               beatsPerBar={beatsPerBar}
               isSelected={selectedEventIds.has(event.id)}
               stackCount={stackCounts.get(`${event.position.bar}.${event.position.beat}.${event.position.tick}`) ?? 1}
+              mutedReason={eventDisabledReason(event, device)}
               snapMode={snapMode}
               onClick={onEventClick}
               onDoubleClick={onEventDoubleClick}

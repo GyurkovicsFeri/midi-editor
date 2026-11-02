@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useTransportStore } from '../stores/transport-store'
 import { useProjectStore } from '../stores/project-store'
 import { useMidiOutputStore } from '../stores/midi-output-store'
-import { resolveEventToRawMidi, getProfile } from '../engine/device-protocol'
+import { resolveEventToRawMidi, getProfile, isEventEnabled } from '../engine/device-protocol'
 import { sendMessages, sendClockStart, sendClockStop, sendClockPulse } from '../engine/midi-output'
 import { positionToTotalTicks, secondsToPosition } from '../engine/clock'
 import { TICKS_PER_BEAT } from '../types/midi'
@@ -89,7 +89,7 @@ export function useMidiPlayback() {
       for (const event of song.events) {
         if (sentEventsRef.current.has(event.id)) continue
         const device = devices.find((d) => d.id === event.deviceId)
-        if (!device) continue
+        if (!device || !isEventEnabled(event, device)) continue
         // Latency compensation: fire this device's events early by its configured ms
         const latencyTicks = ((device.latencyCompensationMs ?? 0) / 1000) * (song.bpm / 60) * TICKS_PER_BEAT
         const eventTick = Math.max(0, positionToTotalTicks(event.position, beatsPerBar) - latencyTicks)

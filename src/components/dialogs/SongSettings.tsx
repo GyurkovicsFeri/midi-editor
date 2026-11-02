@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
 import { useMidiOutputStore } from '../../stores/midi-output-store'
-import { getBuiltInProfiles } from '../../engine/device-protocol'
+import { getBuiltInProfiles, profileHasTapTempo, profileHasTuner } from '../../engine/device-protocol'
 import type { Preset, Scene } from '../../types/device'
 import { DEFAULT_SCENE_COLORS } from '../../types/device'
 
@@ -281,6 +281,40 @@ export function SongSettings() {
                               Events for this device are sent this many ms early (export and live playback), so the new sound is ready by the downbeat.
                             </p>
                           </div>
+                          {/* Tuner commands switch */}
+                          {profileHasTuner(profiles.find((p) => p.id === device.profileId)) && (
+                            <label className="flex items-start gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!device.disableTuner}
+                                onChange={(e) => updateDevice(device.id, { disableTuner: !e.target.checked })}
+                                className="mt-0.5 accent-blue-500"
+                              />
+                              <span className="text-xs text-gray-300">
+                                Send tuner commands
+                                <span className="block text-[10px] text-gray-600">
+                                  When off, this device's Tuner events are never sent (MIDI export and live playback). The events stay in the songs, so you can turn it back on later.
+                                </span>
+                              </span>
+                            </label>
+                          )}
+                          {/* Tap tempo switch */}
+                          {profileHasTapTempo(profiles.find((p) => p.id === device.profileId)) && (
+                            <label className="flex items-start gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!device.disableTapTempo}
+                                onChange={(e) => updateDevice(device.id, { disableTapTempo: !e.target.checked })}
+                                className="mt-0.5 accent-blue-500"
+                              />
+                              <span className="text-xs text-gray-300">
+                                Send tap tempo
+                                <span className="block text-[10px] text-gray-600">
+                                  When off, this device gets no tap tempo at all: no embedded taps at the start of exported songs, and its Tap Tempo events are never sent. The events stay in the songs, so you can turn it back on later.
+                                </span>
+                              </span>
+                            </label>
+                          )}
                           {/* VE-500 Assigns section */}
                           {device.profileId === 've-500' && (
                             <div className="border-t border-gray-700 pt-2 mt-1">
@@ -477,6 +511,12 @@ export function SongSettings() {
                           <span className="text-xs text-gray-500">Ch{device.midiChannel}</span>
                           {(device.latencyCompensationMs ?? 0) > 0 && (
                             <span className="text-xs text-gray-500" title="Latency compensation">−{device.latencyCompensationMs}ms</span>
+                          )}
+                          {device.disableTuner && (
+                            <span className="text-xs text-amber-500" title="Tuner commands are not sent for this device">Tuner disabled</span>
+                          )}
+                          {device.disableTapTempo && (
+                            <span className="text-xs text-amber-500" title="Tap tempo is not sent to this device">Tap disabled</span>
                           )}
                           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-current text-gray-600">
                             <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L3.463 11.098a.25.25 0 00-.064.108l-.563 1.97 1.971-.564a.25.25 0 00.108-.064l8.61-8.61a.25.25 0 000-.353L12.427 2.488z" />

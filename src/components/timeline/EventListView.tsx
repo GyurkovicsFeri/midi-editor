@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useProjectStore } from '../../stores/project-store'
 import { useUIStore } from '../../stores/ui-store'
-import { getProfile } from '../../engine/device-protocol'
+import { getProfile, eventDisabledReason } from '../../engine/device-protocol'
 import { resolveCommandDisplayName } from '../../types/device'
 import { EventEditor } from '../dialogs/EventEditor'
 import type { MidiEvent, MusicalPosition } from '../../types/midi'
@@ -251,6 +251,8 @@ export function EventListView() {
                 const profile = device ? getProfile(device.profileId) : undefined
                 const command = profile?.commands.find((c) => c.id === event.commandId)
                 const isSelected = selectedEventIds.has(event.id)
+                const mutedReason = device ? eventDisabledReason(event, device) : null
+                const muted = !!mutedReason
 
                 return (
                   <tr
@@ -298,7 +300,12 @@ export function EventListView() {
 
                     {/* Command */}
                     <td className="px-4 py-2 text-gray-400">
-                      {command && device ? resolveCommandDisplayName(command, device) : event.commandId ?? '—'}
+                      <span className={muted ? 'line-through opacity-50' : ''}>
+                        {command && device ? resolveCommandDisplayName(command, device) : event.commandId ?? '—'}
+                      </span>
+                      {muted && (
+                        <span className="ml-2 text-[10px] text-amber-500" title={mutedReason ?? undefined}>not sent</span>
+                      )}
                     </td>
 
                     {/* Parameters */}

@@ -2,7 +2,7 @@ import MidiWriter from 'midi-writer-js'
 import JSZip from 'jszip'
 import type { Song } from '../types/project'
 import type { DeviceProfile, MidiDevice } from '../types/device'
-import { getProfile, resolveEventToRawMidi } from '../engine/device-protocol'
+import { getProfile, isEventEnabled, resolveEventToRawMidi } from '../engine/device-protocol'
 import { positionToTotalTicks } from '../engine/clock'
 import { TICKS_PER_BEAT } from '../types/midi'
 import { isSweepCommand, expandSweepToMessages } from '../engine/sweep'
@@ -35,7 +35,7 @@ export function exportSongToMidi(
     track.setTimeSignature(song.timeSignature[0], song.timeSignature[1])
 
     const deviceEvents = song.events
-      .filter((e) => e.deviceId === device.id)
+      .filter((e) => e.deviceId === device.id && isEventEnabled(e, device))
       .sort((a, b) => {
         return (
           positionToTotalTicks(a.position, beatsPerBar) -
@@ -140,6 +140,7 @@ function tapTempoMessages(
 ): Array<{ scaledTick: number; msg: { type: 'cc'; channel: number; data: number[] } }> {
   const taps: Array<{ scaledTick: number; msg: { type: 'cc'; channel: number; data: number[] } }> = []
   for (const device of devices) {
+    if (device.disableTapTempo) continue
     for (let i = 0; i < TAP_COUNT; i++) {
       const tapTick = i * 128 + TAP_OFFSET_TICKS // one beat apart at midi-writer's 128 PPQ
       if (device.profileId === 'quad-cortex') {
@@ -187,7 +188,7 @@ export function exportSongToMidiFormat0(
     if (!profile) continue
 
     const deviceEvents = song.events
-      .filter((e) => e.deviceId === device.id)
+      .filter((e) => e.deviceId === device.id && isEventEnabled(e, device))
       .sort((a, b) =>
         positionToTotalTicks(a.position, beatsPerBar) -
         positionToTotalTicks(b.position, beatsPerBar)

@@ -62,6 +62,8 @@ export interface MidiDevice {
   presets: Preset[]
   assignNames?: string[]  // VE-500: nicknames for Assign 1–8 (CC#1–8)
   latencyCompensationMs?: number  // send this device's events this many ms early (export + live playback)
+  disableTuner?: boolean  // never send this device's tuner commands (export + live playback); events stay in the song
+  disableTapTempo?: boolean  // never send tap tempo to this device: no embedded export taps, no Tap Tempo events
 }
 
 export function resolveEventColor(

@@ -9,6 +9,7 @@ interface EventBlockProps {
   beatsPerBar: number
   isSelected: boolean
   stackCount?: number
+  mutedReason?: string | null  // set when the event is kept but not sent (e.g. tuner disabled on its device)
   onClick: (id: string, multi: boolean) => void
   onDoubleClick: (id: string) => void
   onContextMenu: (id: string, x: number, y: number) => void
@@ -24,6 +25,7 @@ export function EventBlock({
   beatsPerBar,
   isSelected,
   stackCount = 1,
+  mutedReason = null,
   onClick,
   onDoubleClick,
   onContextMenu,
@@ -32,6 +34,7 @@ export function EventBlock({
   onDragEnd,
   snapMode
 }: EventBlockProps) {
+  const muted = !!mutedReason
   const x =
     ((event.position.bar - 1) * beatsPerBar + (event.position.beat - 1)) *
       pixelsPerBeat +
@@ -107,7 +110,8 @@ export function EventBlock({
     <div
       className={`absolute top-1 bottom-1 rounded cursor-grab active:cursor-grabbing
         flex items-center px-1.5 text-xs font-medium transition-shadow
-        ${isSelected ? 'ring-2 ring-white shadow-lg' : 'hover:brightness-110'}`}
+        ${isSelected ? 'ring-2 ring-white shadow-lg' : 'hover:brightness-110'}
+        ${muted ? 'opacity-35 border border-dashed border-white/60' : ''}`}
       style={{
         left: x,
         width,
@@ -125,7 +129,7 @@ export function EventBlock({
       }}
       title={`${event.label} — Bar ${event.position.bar}, Beat ${event.position.beat}${
         stackCount > 1 ? ` (+${stackCount - 1} more here)` : ''
-      }`}
+      }${mutedReason ? ` — NOT SENT (${mutedReason})` : ''}`}
     >
       {stackCount > 1 && (
         <span
@@ -158,7 +162,7 @@ export function EventBlock({
           })()}
         </svg>
       )}
-      <span className="truncate text-white drop-shadow-sm relative z-10">{event.label}</span>
+      <span className={`truncate text-white drop-shadow-sm relative z-10 ${muted ? 'line-through' : ''}`}>{event.label}</span>
       {isSweep && width > 60 && (
         <span className="absolute right-1.5 text-[10px] text-white/70 drop-shadow-sm z-10">
           {event.parameters?.endValue ?? 127}

@@ -19,6 +19,43 @@ export function getProfile(
   return [...builtInProfiles, ...customProfiles].find((p) => p.id === profileId)
 }
 
+// Built-in tuner commands, silenced when a device has `disableTuner` set.
+export const TUNER_COMMAND_IDS = new Set(['qc-tuner-on', 'qc-tuner-off', 'helix-lt-tuner', 'dg-tuner'])
+
+export function isTunerCommand(commandId: string | undefined): boolean {
+  return commandId !== undefined && TUNER_COMMAND_IDS.has(commandId)
+}
+
+export function profileHasTuner(profile: DeviceProfile | undefined): boolean {
+  return !!profile?.commands.some((c) => TUNER_COMMAND_IDS.has(c.id))
+}
+
+// Built-in tap tempo commands, silenced when a device has `disableTapTempo` set.
+export const TAP_TEMPO_COMMAND_IDS = new Set(['qc-tap-tempo', 'helix-lt-tap-tempo'])
+// Profiles that get embedded tap-tempo taps in Format 0 / ZIP exports (see midi-file-io.ts).
+export const EMBEDDED_TAP_PROFILE_IDS = new Set(['quad-cortex', 've-500'])
+
+export function isTapTempoCommand(commandId: string | undefined): boolean {
+  return commandId !== undefined && TAP_TEMPO_COMMAND_IDS.has(commandId)
+}
+
+export function profileHasTapTempo(profile: DeviceProfile | undefined): boolean {
+  if (!profile) return false
+  return EMBEDDED_TAP_PROFILE_IDS.has(profile.id) || profile.commands.some((c) => TAP_TEMPO_COMMAND_IDS.has(c.id))
+}
+
+/** Why an event won't be sent on this device, or null if it will be sent. */
+export function eventDisabledReason(event: MidiEvent, device: MidiDevice): string | null {
+  if (device.disableTuner && isTunerCommand(event.commandId)) return 'tuner commands disabled for this device'
+  if (device.disableTapTempo && isTapTempoCommand(event.commandId)) return 'tap tempo disabled for this device'
+  return null
+}
+
+/** False when the event must not be sent (export or live), e.g. a tuner command on a tuner-disabled device. */
+export function isEventEnabled(event: MidiEvent, device: MidiDevice): boolean {
+  return eventDisabledReason(event, device) === null
+}
+
 export function resolveEventToRawMidi(
   event: MidiEvent,
   device: MidiDevice,
